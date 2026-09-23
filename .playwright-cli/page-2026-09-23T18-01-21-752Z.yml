@@ -1,0 +1,266 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - img "Terra Quantum Logo" [ref=e5]
+      - generic [ref=e6]:
+        - link "Back to jobs" [ref=e7] [cursor=pointer]:
+          - /url: https://job-boards.eu.greenhouse.io/terraquantum?gh_src=jr8t1oc2teu
+        - generic [ref=e10]: New
+        - generic [ref=e13]:
+          - generic [ref=e14]:
+            - heading "Product Marketing Manager" [level=1] [ref=e15]
+            - generic [ref=e16]: San Francisco, USA
+          - button "Apply" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - paragraph [ref=e23]
+            - paragraph [ref=e24]
+          - generic [ref=e25]:
+            - heading [level=3] [ref=e26]:
+              - strong [ref=e27]: Job description
+            - paragraph [ref=e28]: Terra Quantum is hiring a Product Marketing Manager to own marketing across our quantum technology portfolio.
+            - paragraph [ref=e29]: This is a senior, hands-on role for someone who can take deeply technical products to market with clarity, accuracy and commercial judgement. You will define how we position, explain and promote our products, working directly with the scientists, engineers and commercial teams who build and shape them.
+            - heading "About the Role" [level=3] [ref=e30]
+            - paragraph [ref=e31]: This is an end-to-end role with real ownership. You will turn advanced, hard-to-explain products into clear, credible market narratives, and build what carries them to buyers.
+            - paragraph [ref=e32]: It needs both strategy and hands-on execution. You will write, brief, research, shape narratives and build assets, and you will spend real time with our scientists and engineers to get the substance right, because accuracy is not optional here.
+            - paragraph [ref=e33]: The portfolio spans different technologies and audiences, so getting credible in a new domain quickly matters as much as depth in any one. This role suits someone who has owned a technical product's narrative, not only run the campaigns around it.
+            - heading "What You Will Own" [level=3] [ref=e34]
+            - paragraph [ref=e35]: "You will lead product marketing across the portfolio, including:"
+            - list [ref=e36]:
+              - listitem [ref=e37]:
+                - paragraph [ref=e38]: Positioning and messaging for products, use cases and buyer personas
+              - listitem [ref=e39]:
+                - paragraph [ref=e40]: Product pages and web content
+              - listitem [ref=e41]:
+                - paragraph [ref=e42]: Go-to-market planning for launches and commercial initiatives
+              - listitem [ref=e43]:
+                - paragraph [ref=e44]: Campaigns and core messaging across the channels that fit the buyer
+              - listitem [ref=e45]:
+                - paragraph [ref=e46]: Long and short-form content, with technical and scientific contributors where needed
+              - listitem [ref=e47]:
+                - paragraph [ref=e48]: "Sales enablement: decks, one-pagers, keynote presentations and product marketing assets"
+              - listitem [ref=e49]:
+                - paragraph [ref=e50]: Messaging and materials for conferences, roundtables and customer conversations
+              - listitem [ref=e51]:
+                - paragraph [ref=e52]: Buyer, competitor and market research to sharpen each category
+              - listitem [ref=e53]:
+                - paragraph [ref=e54]: Close work with product, research, engineering and commercial to keep marketing accurate and differentiated
+            - heading "What We Are Looking For" [level=3] [ref=e55]
+            - paragraph [ref=e56]: "You will combine strong writing, technical curiosity and commercial instinct. You should bring:"
+            - list [ref=e57]:
+              - listitem [ref=e58]:
+                - paragraph [ref=e59]: Experience in B2B product marketing or technical marketing
+              - listitem [ref=e60]:
+                - paragraph [ref=e61]: A track record marketing a technical product category, for example cybersecurity, enterprise software, cloud infrastructure, developer tools, AI, data or analytics, or scientific or industrial software
+              - listitem [ref=e62]:
+                - paragraph [ref=e63]: Strong writing, and the ability to turn dense material into something a busy expert will actually read
+              - listitem [ref=e64]:
+                - paragraph [ref=e65]: A good grasp of enterprise buying and considered-purchase sales cycles
+              - listitem [ref=e66]:
+                - paragraph [ref=e67]: Comfort working with technical experts and translating their work without dumbing it down
+              - listitem [ref=e68]:
+                - paragraph [ref=e69]: The range to move between different technologies and buyers, and get up to speed fast
+              - listitem [ref=e70]:
+                - paragraph [ref=e71]: Confidence owning a product area on your own, while working closely with product and sales
+              - listitem [ref=e72]:
+                - paragraph [ref=e73]: Sound judgement on accuracy, claims and tone
+              - listitem [ref=e74]:
+                - paragraph [ref=e75]: Comfort operating in a small, high-autonomy marketing environment
+            - heading "Valuable Experience" [level=3] [ref=e76]
+            - paragraph [ref=e77]: "Any of the following would be a bonus:"
+            - list [ref=e78]:
+              - listitem [ref=e79]:
+                - paragraph [ref=e80]: Depth in security, AI or machine learning, optimisation, simulation, scientific computing or another advanced technical field
+              - listitem [ref=e81]:
+                - paragraph [ref=e82]: Marketing to technical and enterprise buyers, from CISOs and security or infrastructure leaders to operations, engineering or R&D decision-makers
+              - listitem [ref=e83]:
+                - paragraph [ref=e84]: Product launches and early-stage go-to-market for technical products
+              - listitem [ref=e85]:
+                - paragraph [ref=e86]: Sales enablement for enterprise or strategic-account teams
+              - listitem [ref=e87]:
+                - paragraph [ref=e88]: Content built for expert audiences
+              - listitem [ref=e89]:
+                - paragraph [ref=e90]: Executive roundtables, webinars, conferences or field marketing in technical markets
+              - listitem [ref=e91]:
+                - paragraph [ref=e92]: Working with Figma and/or other Design tools to brief, review and assemble marketing and sales assets
+            - heading "Impact" [level=3] [ref=e93]
+            - paragraph [ref=e94]: You will contribute to shaping how novel technology is being brought to the market, helping make it understandable and credible. Ultimately, you will have a high-ownership role in driving quantum technology to earn attention and trust in markets that will greatly benefit from it, but still have an education curve ahead.
+            - paragraph [ref=e95]
+          - generic [ref=e96]:
+            - paragraph [ref=e97]:
+              - strong [ref=e98]: The Rewards
+            - paragraph [ref=e99]: "We are an international team of quantum technology experts and dedicated business creatives that are working to bring quantum-enabled solutions to the global market. Our brilliant team members enjoy a high degree of freedom working remotely or joining one of our office spaces. We have a vibrant, enthusiastic, passionate and creative culture driven by trust, excellence and continuous improvement. If you join the Terra Quantum team, you can expect:"
+            - list [ref=e100]:
+              - listitem [ref=e101]: An opportunity to work with some of the brightest minds in the pioneering field of Quantum Technologies as well as an experienced and progressive Leadership team
+              - listitem [ref=e102]: Gain knowledge of some of the most cutting-edge technology developments in science & engineering
+              - listitem [ref=e103]: A chance to be part of one of Europe’s leading technology firms of the upcoming decades
+              - listitem [ref=e104]: Welcoming, friendly, and professional colleagues
+              - listitem [ref=e105]: A personal development plan with clear goals for advancement
+              - listitem [ref=e106]: A competitive salary
+              - listitem [ref=e107]: Flexible working arrangements
+              - listitem [ref=e108]: A diverse and supportive atmosphere, where innovation and initiative are encouraged
+            - paragraph [ref=e109]: If you are enthusiastic about positively impacting the world and helping to drive the second quantum revolution, let’s talk!
+            - paragraph [ref=e110]
+            - paragraph [ref=e111]:
+              - strong [ref=e112]: Company description
+            - paragraph [ref=e113]: Quantum technologies have the potential to solve some of the world’s biggest challenges. There have been great advances in all areas of quantum technologies, and new fields of application are opened up every day. Hybrid computer systems that combine classic high-performance computing with quantum computers are already being used to develop solutions in sectors such as logistics, healthcare, finance, energy, automotive and aerospace. Quantum mechanical predictions are also used to obtain unprecedented precision in measurements, generate unbreakable codes, and form the basis of impenetrable communication networks. All these developments are happening right now, and they are happening at Terra Quantum.
+            - paragraph [ref=e114]: "At Terra Quantum we are building the world’s leading Quantum Technology company. We offer customers world-class quantum technology expertise organized as “quantum-as-a-service”: hybrid quantum algorithms, quantum compute and quantum enabled security solutions. Through the proprietary quantum cloud, customers have access to a unique technology platform which provides a toolset to solve real-world challenges in the realms of machine learning, optimization and simulation, today. In 2022, the company closed its Series A financing round with a $75m fundraise."
+            - paragraph [ref=e115]: "Quantum physics has, in some respects, parallels to the machine language of our computers-the zeros and ones into which our keyboard or touchscreen instructions are translated for execution in the computer-only on a larger scale: it is the machine language of the universe. The second quantum revolution is based on the control of individual quantum systems, such as individual atoms. We use quantum computers to solve currently unsolvable problems, simulate molecules and their interactions, find drugs for diseases that are not yet curable, find new materials, or make artificial intelligence stronger. Quantum is now."
+            - paragraph [ref=e116]: Terra Quantum is a future-focused quantum services and technology company working on making the second quantum revolution a reality. Terra Quantum’s activities span all areas, markets, and industries globally.
+            - list [ref=e117]:
+              - listitem [ref=e118]: Our purpose is to pioneer quantum technologies to change the world for good,
+              - listitem [ref=e119]: Our vision is to lead the quantum revolution and be the trailblazer in technology solutions, shaping a better future for humankind to thrive in, and
+              - listitem [ref=e120]: Our mission is to unleash the power of quantum tech to deliver meaningful solutions today
+            - paragraph [ref=e121]: Terra Quantum is an equal opportunities employer, committed to diversity, inclusion and employee well-being.
+        - generic [ref=e125]:
+          - paragraph [ref=e126]: Create a Job Alert
+          - paragraph [ref=e127]: Interested in building your career at Terra Quantum ? Get future opportunities sent straight to your email.
+          - button "Create alert" [ref=e128] [cursor=pointer]
+      - separator [ref=e129]
+      - generic [ref=e130]:
+        - generic [ref=e131]:
+          - generic [ref=e132]:
+            - heading "Apply for this job" [level=2] [ref=e134]
+            - generic [ref=e135]:
+              - paragraph [ref=e137]: "*"
+              - paragraph [ref=e138]: indicates a required field
+          - button "Autofill my application" [ref=e141] [cursor=pointer]
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - generic [ref=e146]:
+              - generic [ref=e147]: First Name*
+              - textbox "First Name" [ref=e148]
+            - generic [ref=e151]:
+              - generic [ref=e152]: Last Name*
+              - textbox "Last Name" [ref=e153]
+            - generic [ref=e156]:
+              - generic [ref=e157]: Email*
+              - textbox "Email" [ref=e158]
+            - group "Phone" [ref=e160]:
+              - generic [ref=e164]:
+                - generic [ref=e165]: Country*
+                - generic [ref=e166]:
+                  - log [ref=e168]
+                  - generic [ref=e170]:
+                    - combobox "Country" [ref=e173]
+                    - button "Toggle flyout" [ref=e175] [cursor=pointer]
+                  - textbox
+              - generic [ref=e180]:
+                - generic [ref=e181]: Phone*
+                - textbox "Phone" [ref=e182]
+            - group "Resume/CV*" [ref=e184]:
+              - generic [ref=e187]:
+                - generic [ref=e189]:
+                  - button "Attach" [ref=e190] [cursor=pointer]
+                  - generic [ref=e191]: Attach
+                  - button "Attach" [ref=e192]
+                - button "Dropbox" [ref=e194] [cursor=pointer]
+                - button "Google Drive" [ref=e196] [cursor=pointer]
+                - generic [ref=e198]:
+                  - button "Enter manually" [ref=e199] [cursor=pointer]
+                  - generic [ref=e200]: Enter manually
+                - paragraph [ref=e201]: "Accepted file types: pdf, doc, docx, txt, rtf"
+            - group "Cover Letter" [ref=e203]:
+              - generic [ref=e206]:
+                - generic [ref=e208]:
+                  - button "Attach" [ref=e209] [cursor=pointer]
+                  - generic [ref=e210]: Attach
+                  - button "Attach" [ref=e211]
+                - button "Dropbox" [ref=e213] [cursor=pointer]
+                - button "Google Drive" [ref=e215] [cursor=pointer]
+                - generic [ref=e217]:
+                  - button "Enter manually" [ref=e218] [cursor=pointer]
+                  - generic [ref=e219]: Enter manually
+                - paragraph [ref=e220]: "Accepted file types: pdf, doc, docx, txt, rtf"
+          - generic [ref=e221]:
+            - generic [ref=e222]:
+              - separator [ref=e223]
+              - paragraph [ref=e225]: Education
+              - generic [ref=e227]:
+                - generic [ref=e228]: School
+                - generic [ref=e229]:
+                  - log [ref=e231]
+                  - generic [ref=e233]:
+                    - generic [ref=e234]:
+                      - generic [ref=e235]: Select...
+                      - combobox "School" [ref=e237]
+                    - button "Toggle flyout" [ref=e239] [cursor=pointer]
+              - generic [ref=e243]:
+                - generic [ref=e244]: Degree
+                - generic [ref=e245]:
+                  - log [ref=e247]
+                  - generic [ref=e249]:
+                    - generic [ref=e250]:
+                      - generic [ref=e251]: Select...
+                      - combobox "Degree" [ref=e253]
+                    - button "Toggle flyout" [ref=e255] [cursor=pointer]
+              - generic [ref=e259]:
+                - generic [ref=e260]: Discipline
+                - generic [ref=e261]:
+                  - log [ref=e263]
+                  - generic [ref=e265]:
+                    - generic [ref=e266]:
+                      - generic [ref=e267]: Select...
+                      - combobox "Discipline" [ref=e269]
+                    - button "Toggle flyout" [ref=e271] [cursor=pointer]
+              - generic [ref=e274]:
+                - generic [ref=e277]:
+                  - generic [ref=e278]: Start date year
+                  - spinbutton "Start date year" [ref=e279]
+                - generic [ref=e282]:
+                  - generic [ref=e283]: End date year
+                  - spinbutton "End date year" [ref=e284]
+            - button "Add another" [ref=e285] [cursor=pointer]
+          - generic [ref=e286]:
+            - separator [ref=e287]
+            - generic [ref=e290]:
+              - generic [ref=e291]: LinkedIn Profile
+              - textbox "LinkedIn Profile" [ref=e292]
+            - generic [ref=e293]:
+              - generic [ref=e295]:
+                - generic [ref=e296]: Right to Work in USA*
+                - textbox "Right to Work in USA" [ref=e297]
+              - paragraph [ref=e300]: Are you independently authorised to work indefinitely in USA?
+            - generic [ref=e301]:
+              - generic [ref=e303]:
+                - generic [ref=e304]: Availability*
+                - textbox "Availability" [ref=e305]
+              - paragraph [ref=e308]: What is your notice period and/or preferred start date?
+            - generic [ref=e309]:
+              - generic [ref=e311]:
+                - generic [ref=e312]: Financials*
+                - textbox "Financials" [ref=e313]
+              - paragraph [ref=e316]: What salary are you looking for in a new role?
+            - generic [ref=e317]:
+              - generic [ref=e319]:
+                - generic [ref=e320]: The why*
+                - textbox "The why" [ref=e321]
+              - paragraph [ref=e324]: Why are you looking to move from your current role and/or why does this opportunity in Terra Quantum particularly appeal?
+            - generic [ref=e325]:
+              - generic [ref=e327]:
+                - generic [ref=e328]: Cybersecurity marketing experience*
+                - textbox "Cybersecurity marketing experience" [ref=e329]
+              - paragraph [ref=e332]: How many years have you spent marketing cybersecurity or closely related technical products (for example cryptography, cloud security, infrastructure)? Name the products or categories.
+            - generic [ref=e333]:
+              - generic [ref=e335]:
+                - generic [ref=e336]: Ownership*
+                - textbox "Ownership" [ref=e337]
+              - paragraph [ref=e340]: Describe a technical or considered-purchase product you owned product marketing or GTM for, and in one or two sentences, one key decision you made (positioning, launch, packaging or target buyer) and why.
+            - generic [ref=e341]:
+              - generic [ref=e343]:
+                - generic [ref=e344]: Buyer Experience*
+                - textbox "Buyer Experience" [ref=e345]
+              - paragraph [ref=e348]: Which enterprise buyers have you marketed to (for example CISOs, security architects, infrastructure or PKI teams)? Briefly, in what context?
+            - generic [ref=e349]:
+              - generic [ref=e351]:
+                - generic [ref=e352]: Anything else you'd like to tell us?
+                - textbox "Anything else you'd like to tell us?" [ref=e353]
+              - paragraph [ref=e356]: No obligation, entirely optional!
+          - separator [ref=e357]
+          - button "Submit application" [ref=e359] [cursor=pointer]
+  - contentinfo [ref=e360]:
+    - generic [ref=e361]:
+      - paragraph [ref=e362]: Powered by
+      - link [ref=e363] [cursor=pointer]:
+        - /url: https://www.greenhouse.com
+        - img "Greenhouse logo" [ref=e364]
