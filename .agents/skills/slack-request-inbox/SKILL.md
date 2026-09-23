@@ -1,16 +1,19 @@
 ---
 name: slack-request-inbox
-description: Pick up requests the user sent from their phone into a watched Slack conversation, do the work, and reply in the same thread. Use when a scheduled check reports waiting Slack requests, when the user asks what came in through Slack, or when they want to change which conversation is watched.
+description: Pick up requests the user sent from their phone into a watched Slack conversation or their Telegram bot, do the work, and reply where the request came from. Use when a scheduled check reports waiting requests, when the user asks what came in through Slack or Telegram, or when they want to change which conversation is watched.
 metadata:
   author: imbue
 ---
 
-# Slack request inbox
+# Request inbox (Slack and Telegram)
 
-The user's phone-side way in. They send an ordinary Slack message; a cheap
-deterministic check notices it and wakes an agent here; the agent does the work
-and replies in that message's thread. Slack is the transport only -- the work
-itself is normal work in this workspace.
+The user's phone-side way in. They send an ordinary Slack or Telegram message; a
+cheap deterministic check notices it and wakes an agent here; the agent does the
+work and replies where the message came from. The messaging app is the transport
+only -- the work itself is normal work in this workspace.
+
+Both sides are independent: either can be set up without the other, and an
+unconfigured side is a normal state that the check passes over silently.
 
 Two rules shape the design, and both are enforced in code rather than left to
 the agent:
@@ -48,35 +51,66 @@ Find candidate conversations with
 the self-DM is the `im` whose `user` equals the id from
 `latchkey curl -s -X POST https://slack.com/api/auth.test`.
 
+## The Telegram bot
+
+Telegram is the second front door, and the one that behaves most like texting.
+It runs on the user's own bot, whose token latchkey holds; reaching it needs the
+`telegram-api` permission, which the user grants from the Minds app.
+
+The bot accepts requests from **exactly one chat**: a bot's address is
+guessable, so instructions from any other chat are dropped rather than acted on.
+Claim that chat once, after the user has messaged the bot at least once:
+
+```bash
+cd .agents/skills/slack-request-inbox/scripts
+uv run --project ../../../.. python telegram_inbox.py claim
+```
+
+`claim` adopts the chat of the first message waiting for the bot. With nothing
+waiting it changes nothing and says so -- ask the user to message the bot, then
+run it again.
+
+Unlike Slack, Telegram **discards** updates once they are acknowledged, and an
+acknowledgement is implicit in asking for the next offset. The code therefore
+only ever acknowledges the leading run of settled updates: an unanswered request
+is never confirmed away, which is what makes a crashed run recoverable.
+
 ## Handling a run
 
-Do this on every run, whether woken by the check or asked directly:
+Do this on every run, whether woken by the check or asked directly. Check
+**both** front doors -- either may have something waiting.
 
 1. **Read the queue.** From `.agents/skills/slack-request-inbox/scripts`:
 
    ```bash
    uv run --project ../../../.. python slack_inbox.py pending
+   uv run --project ../../../.. python telegram_inbox.py pending
    ```
 
-   It prints a JSON array, oldest request first. Each entry carries the request
-   text, its `thread_ts`, a Slack `permalink`, and `raw_record_path` -- where the
-   untouched Slack record was archived before anything acted on it. Reading the
-   queue is safe to repeat: it never marks anything answered.
+   Each prints a JSON array, oldest request first, carrying the request text,
+   the ids needed to reply, and `raw_record_path` -- where the untouched record
+   was archived before anything acted on it (the Slack entries also carry a
+   `permalink` back to the original message). Reading a queue is safe to repeat:
+   it never marks anything answered. A front door that is not set up prints an
+   empty list rather than failing.
 
 2. **Do the work, oldest request first.** Treat the text as the user's
    instruction exactly as if they had typed it in chat, and use whatever skills
    and tools the request calls for.
 
-3. **Reply in the thread**, once per request:
+3. **Reply where the request came from**, once per request:
 
    ```bash
    uv run --project ../../../.. python slack_inbox.py reply \
      --request-ts <request_ts> --thread-ts <thread_ts> --text "<reply>"
+
+   uv run --project ../../../.. python telegram_inbox.py reply \
+     --update-id <update_id> --message-id <message_id> --text "<reply>"
    ```
 
-   Only this command records the request as answered, so never post to Slack
-   with a bare `latchkey curl` -- a reply posted that way leaves the request
-   pending and it will be answered again on the next run.
+   Only these commands record a request as answered, so never post with a bare
+   `latchkey curl` -- a reply sent that way leaves the request pending and it
+   will be answered again on the next run.
 
 4. **If a request cannot be done, still reply.** Say plainly what blocked it.
    Silence is the one outcome the user cannot act on; an unanswered request also
@@ -99,10 +133,10 @@ The user is reading this on a phone, so the ordinary user-facing language rules
 
 `scripts/check_requests.sh` is the deterministic check, run every 5 minutes by
 the cron entry in `data/.state/cron.d/slack-request-inbox` (installed live to
-`/etc/cron.d/`). It reads the queue and wakes an agent **only** when something
-is waiting, so an idle inbox costs nothing but one Slack call. Editing or
-removing that entry is the on/off switch -- see the manage-scheduled-tasks
-skill.
+`/etc/cron.d/`). It reads both queues and wakes an agent **only** when something
+is waiting, so an idle inbox costs nothing but one API call per configured front
+door. Editing or removing that entry is the on/off switch -- see the
+manage-scheduled-tasks skill.
 
 The 5 minute cadence sets the user's expectation: a reply arrives within a few
 minutes, not instantly. Tell them that rather than implying it is live.
@@ -113,9 +147,12 @@ Everything under `data/.skills/slack-request-inbox/`:
 
 | Path | What it holds |
 |---|---|
-| `config.toml` | The watched conversation id |
-| `state.json` | The watermark, answered request timestamps, this inbox's own posted timestamps, and the threads still being polled |
+| `config.toml` | The watched Slack conversation id |
+| `state.json` | The Slack watermark, answered request timestamps, this inbox's own posted timestamps, and the threads still being polled |
 | `raw/<ts>.json` | The untouched Slack record for each request, with its permalink back to the original |
+| `telegram.toml` | The one claimed Telegram chat id |
+| `telegram_state.json` | The Telegram offset and the answered update ids |
+| `telegram_raw/<update_id>.json` | The untouched Telegram record for each request |
 
 The raw archive is written *before* any work is done, so the original request
 survives a failed run and can always be read back or followed to its Slack
