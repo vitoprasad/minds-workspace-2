@@ -384,3 +384,7 @@ system/apps/system_interface/frontend/src/permission-demo.ts
 # A skill script run from its own directory must never leave workspace data beside
 # its code; state belongs under the repo-root data/ tree only.
 .agents/skills/*/scripts/data/
+
+# Runtime job state written outside the repo-root data/ tree by a job runner
+# started from the wrong directory. State belongs under data/.state/ only.
+system/data/
