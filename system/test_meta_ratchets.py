@@ -15,6 +15,11 @@ _REPO_ROOT = Path(__file__).parents[1]
 # Directories excluded from scanning (vendored code)
 _VENDORED_DIR = _REPO_ROOT / "system" / "vendor"
 
+# Workspace data: gitignored runtime state, not source. Programs generate scripts in here at
+# runtime (the terminal app writes its own command wrappers), and holding generated state to the
+# source rules would fail the ratchet on whatever the machine happened to write.
+_WORKSPACE_DATA_DIR = _REPO_ROOT / "data"
+
 # Directory names pruned during filesystem walks: non-source trees (venvs,
 # node_modules, git internals) that can hold tens of thousands of files.
 _PRUNED_DIR_NAMES = frozenset({".git", ".venv", "node_modules", ".test_output"})
@@ -142,7 +147,9 @@ def _find_bash_scripts_without_strict_mode() -> list[str]:
         dirnames[:] = [
             d
             for d in dirnames
-            if d not in _PRUNED_DIR_NAMES and current_dir / d != _VENDORED_DIR
+            if d not in _PRUNED_DIR_NAMES
+            and current_dir / d != _VENDORED_DIR
+            and current_dir / d != _WORKSPACE_DATA_DIR
         ]
         for filename in filenames:
             if not filename.endswith(".sh"):
