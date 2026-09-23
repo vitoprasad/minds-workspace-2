@@ -10,13 +10,13 @@ from calendar_profile import (
 def test_convert_calendar_entry_reads_a_timed_entry() -> None:
     commitment = convert_calendar_entry(
         {
-            "summary": "Volleys & Vibes SZN 6",
+            "summary": "Sunset Volleyball SZN 6",
             "start": {"dateTime": "2026-09-22T19:00:00-07:00"},
             "end": {"dateTime": "2026-09-22T21:00:00-07:00"},
         }
     )
     assert commitment is not None
-    assert commitment.title == "Volleys & Vibes SZN 6"
+    assert commitment.title == "Sunset Volleyball SZN 6"
     assert commitment.starts_at.tzinfo == timezone.utc
     assert commitment.ends_at > commitment.starts_at
 
@@ -52,9 +52,9 @@ def test_convert_calendar_entry_skips_an_untitled_entry() -> None:
 def test_derive_home_locality_picks_the_most_frequent_town() -> None:
     home_locality = derive_home_locality(
         [
-            {"location": "Crocker Amazon Tennis Courts, San Francisco, CA 94112, USA"},
+            {"location": "Riverside Tennis Courts, San Francisco, CA 94112, USA"},
             {
-                "location": "The Anchovy Bar, 1740 O'Farrell Street, San Francisco, CA 94115, USA"
+                "location": "The Corner Bistro, 100 Example Street, San Francisco, CA 94115, USA"
             },
             {"location": "Row 34, 383 Congress Street, Boston, MA 02210, USA"},
         ]

@@ -380,3 +380,7 @@ system/scripts/notify_user.local.sh
 # the app or its tests)
 system/apps/system_interface/frontend/permission-demo.html
 system/apps/system_interface/frontend/src/permission-demo.ts
+
+# A skill script run from its own directory must never leave workspace data beside
+# its code; state belongs under the repo-root data/ tree only.
+.agents/skills/*/scripts/data/

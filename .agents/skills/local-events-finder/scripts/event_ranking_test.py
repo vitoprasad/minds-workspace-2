@@ -93,32 +93,32 @@ def build_profile(
 def test_derive_interest_keywords_keeps_words_repeated_across_entries() -> None:
     keywords = derive_interest_keywords(
         commitment_titles=[
-            "Preply lesson - Rina K.",
-            "Preply lesson - Rina K.",
-            "Volleys and Vibes SZN 6",
+            "Tutoring session - A. Tutor",
+            "Tutoring session - A. Tutor",
+            "Sunset Volleyball SZN 6",
             "Dentist",
         ],
         minimum_occurrence_count=2,
         maximum_keyword_count=10,
     )
-    assert "preply" in keywords
-    assert "lesson" in keywords
+    assert "tutoring" in keywords
+    assert "session" in keywords
     assert "dentist" not in keywords
 
 
 def test_derive_interest_keywords_drops_a_word_present_in_most_entries() -> None:
     keywords = derive_interest_keywords(
         commitment_titles=[
-            "Vito and Dana",
-            "Vito and Sam",
-            "Vito and Priya",
-            "Vito mahjong night",
+            "Alex and Dana",
+            "Alex and Sam",
+            "Alex and Priya",
+            "Alex mahjong night",
             "Mahjong night",
         ],
         minimum_occurrence_count=2,
         maximum_keyword_count=10,
     )
-    assert "vito" not in keywords
+    assert "alex" not in keywords
     assert "mahjong" in keywords
 
 
@@ -167,9 +167,9 @@ def test_calculate_distance_miles_matches_known_separation() -> None:
 
 
 def test_is_recurring_series_title_detects_repeat_markers() -> None:
-    assert is_recurring_series_title("Volleys & Vibes: SZN 6 x WEEK 3")
+    assert is_recurring_series_title("Sunset Volleyball: SZN 6 x WEEK 3")
     assert is_recurring_series_title("September Hiking/Book Club")
-    assert not is_recurring_series_title("Barbarossa Closing Party")
+    assert not is_recurring_series_title("Harbour Lights Closing Party")
 
 
 def test_find_matched_keywords_searches_title_and_description() -> None:
@@ -263,11 +263,11 @@ def test_select_events_rejects_events_too_far_away() -> None:
 
 def test_select_events_rejects_something_already_on_the_calendar() -> None:
     event_start = WINDOW_START + timedelta(days=2)
-    already_going = build_event("Barbarossa Closing Party", event_start)
+    already_going = build_event("Harbour Lights Closing Party", event_start)
     profile = build_profile(
         commitments=(
             CalendarCommitment(
-                title="Barbarossa Closing Party",
+                title="Harbour Lights Closing Party",
                 starts_at=event_start,
                 ends_at=event_start + timedelta(hours=3),
                 is_all_day=False,
