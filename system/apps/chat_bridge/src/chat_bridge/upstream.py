@@ -24,7 +24,7 @@ import httpx
 
 # Where the workspace chat API listens. Overridable so a throwaway bridge can
 # point at a throwaway system_interface during editing/testing.
-UPSTREAM_BASE = os.environ.get("CHAT_BRIDGE_UPSTREAM", "http://127.0.0.1:8000").rstrip("/")
+UPSTREAM_BASE = os.environ.get("CHAT_BRIDGE_UPSTREAM", "http://127.0.0.1:8010").rstrip("/")
 
 # Short connect/read timeout for request/response calls; the streaming call
 # below uses its own (unbounded read) timeout because SSE feeds stay open.
@@ -47,14 +47,43 @@ class UpstreamError(Exception):
 def list_agents() -> list[dict[str, str]]:
     """Return the list of agents as ``[{id, name, state}, ...]``."""
     try:
+        response = httpx.get(f"{UPSTREAM_BASE}/api/chats", timeout=_TIMEOUT)
+        if response.status_code == 200:
+            payload = response.json()
+            chats = payload.get("chats", []) if isinstance(payload, dict) else payload
+            agents: list[dict[str, str]] = []
+            for chat in chats:
+                if isinstance(chat, dict):
+                    chat_id = chat.get("chat_id") or chat.get("id") or ""
+                    name = chat.get("name") or chat.get("title") or chat_id
+                    active = chat.get("active_agent") or {}
+                    state = active.get("state") or chat.get("status") or "IDLE"
+                    raw_act = str(active.get("activity_state") or "").lower()
+                    if raw_act == "tool_running":
+                        activity = "tool_running"
+                    elif raw_act == "thinking":
+                        activity = "thinking"
+                    else:
+                        activity = "idle"
+                    agents.append({
+                        "id": str(chat_id),
+                        "name": str(name),
+                        "state": str(state),
+                        "activity": activity,
+                    })
+            return agents
+    except httpx.HTTPError:
+        pass
+
+    try:
         response = httpx.get(f"{UPSTREAM_BASE}/api/agents", timeout=_TIMEOUT)
     except httpx.HTTPError as error:
         raise UpstreamError(f"cannot reach the chat interface: {error}", 502)
     if response.status_code != 200:
         raise UpstreamError(f"chat interface returned status {response.status_code}", 502)
     payload = response.json()
-    agents = payload.get("agents", []) if isinstance(payload, dict) else payload
-    return [agent for agent in agents if isinstance(agent, dict)]
+    legacy_agents = payload.get("agents", []) if isinstance(payload, dict) else payload
+    return [agent for agent in legacy_agents if isinstance(agent, dict)]
 
 
 def select_agent(agents: list[dict[str, str]], identifier: str) -> str:
@@ -159,52 +188,79 @@ def _tail_is_stale(last_event: dict[str, object]) -> bool:
 
 def send_message(agent_id: str, message: str) -> None:
     """Send ``message`` into the agent's chat (relaying upstream failures)."""
-    try:
-        response = httpx.post(
-            f"{UPSTREAM_BASE}/api/agents/{agent_id}/message",
-            json={"message": message},
-            timeout=_TIMEOUT,
-        )
-    except httpx.HTTPError as error:
-        raise UpstreamError(f"cannot reach the chat interface: {error}", 502)
-    if response.status_code != 200:
-        raise UpstreamError(_detail_or_status(response), response.status_code)
+    endpoints = (
+        f"{UPSTREAM_BASE}/api/chats/{agent_id}/message",
+        f"{UPSTREAM_BASE}/api/agents/{agent_id}/message",
+    )
+    last_error: Exception | None = None
+    for endpoint in endpoints:
+        try:
+            response = httpx.post(
+                endpoint,
+                json={"message": message},
+                timeout=_TIMEOUT,
+            )
+            if response.status_code == 404:
+                continue
+            if response.status_code != 200:
+                raise UpstreamError(_detail_or_status(response), response.status_code)
+            return
+        except httpx.HTTPError as error:
+            last_error = error
+    if last_error is not None:
+        raise UpstreamError(f"cannot reach the chat interface: {last_error}", 502)
+    raise UpstreamError(f"no chat or agent with id '{agent_id}'", 404)
 
 
 def get_events(agent_id: str, params: Mapping[str, str]) -> dict[str, object]:
     """Return a transcript window ``{events, offset, total}`` for the agent."""
-    try:
-        response = httpx.get(
-            f"{UPSTREAM_BASE}/api/agents/{agent_id}/events",
-            params=dict(params),
-            timeout=_TIMEOUT,
-        )
-    except httpx.HTTPError as error:
-        raise UpstreamError(f"cannot reach the chat interface: {error}", 502)
-    if response.status_code != 200:
-        raise UpstreamError(_detail_or_status(response), response.status_code)
-    return response.json()
+    endpoints = (
+        f"{UPSTREAM_BASE}/api/chats/{agent_id}/events",
+        f"{UPSTREAM_BASE}/api/agents/{agent_id}/events",
+    )
+    last_error: Exception | None = None
+    for endpoint in endpoints:
+        try:
+            response = httpx.get(
+                endpoint,
+                params=dict(params),
+                timeout=_TIMEOUT,
+            )
+            if response.status_code == 404:
+                continue
+            if response.status_code != 200:
+                raise UpstreamError(_detail_or_status(response), response.status_code)
+            return response.json()
+        except httpx.HTTPError as error:
+            last_error = error
+    if last_error is not None:
+        raise UpstreamError(f"cannot reach the chat interface: {last_error}", 502)
+    raise UpstreamError(f"no chat or agent with id '{agent_id}'", 404)
 
 
 def stream_events(agent_id: str) -> Iterator[bytes]:
-    """Yield raw Server-Sent-Event bytes from the agent's live feed.
-
-    Iterates the upstream SSE response line by line and re-emits each line, so
-    the bridge is a transparent pass-through of the same ``text/event-stream``
-    the workspace UI consumes. The generator ends when the upstream feed closes.
-    """
-    try:
-        with httpx.stream(
-            "GET",
-            f"{UPSTREAM_BASE}/api/agents/{agent_id}/stream",
-            timeout=_STREAM_TIMEOUT,
-        ) as response:
-            if response.status_code != 200:
-                raise UpstreamError(f"chat interface returned status {response.status_code}", 502)
-            for line in response.iter_lines():
-                yield f"{line}\n".encode()
-    except httpx.HTTPError as error:
-        raise UpstreamError(f"lost connection to the chat interface: {error}", 502)
+    """Yield raw Server-Sent-Event bytes from the agent's live feed."""
+    endpoints = (
+        f"{UPSTREAM_BASE}/api/chats/{agent_id}/stream",
+        f"{UPSTREAM_BASE}/api/agents/{agent_id}/stream",
+    )
+    for endpoint in endpoints:
+        try:
+            with httpx.stream(
+                "GET",
+                endpoint,
+                timeout=_STREAM_TIMEOUT,
+            ) as response:
+                if response.status_code == 404:
+                    continue
+                if response.status_code != 200:
+                    raise UpstreamError(f"chat interface returned status {response.status_code}", 502)
+                for line in response.iter_lines():
+                    yield f"{line}\n".encode()
+                return
+        except httpx.HTTPError as error:
+            raise UpstreamError(f"lost connection to the chat interface: {error}", 502)
+    raise UpstreamError(f"no chat or agent with id '{agent_id}'", 404)
 
 
 def _detail_or_status(response: httpx.Response) -> str:

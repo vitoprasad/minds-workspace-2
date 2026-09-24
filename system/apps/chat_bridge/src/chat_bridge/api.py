@@ -91,7 +91,8 @@ def register_api(app: Flask, token: str) -> None:
         # idle) from its transcript tail. Off by default so a plain list stays cheap.
         if request.args.get("activity"):
             for agent in agents:
-                agent["activity"] = upstream.compute_activity(str(agent.get("id", "")), str(agent.get("state", "")))
+                if "activity" not in agent or not agent["activity"]:
+                    agent["activity"] = upstream.compute_activity(str(agent.get("id", "")), str(agent.get("state", "")))
         return jsonify({"agents": agents})
 
     @app.post("/api/agents/<ident>/message")
