@@ -171,3 +171,6 @@ This is distinct from "Adaptation history" below, which is the ADOPTERS' log.
 
 Each mind that adapts this template appends one dated entry below. Earlier
 entries are never rewritten.
+
+### 2026-09-24 — adapted by this mind
+Merged template local-events-finder into workspace. Verified calendar connection with Google Calendar and ran initial event recommendations for San Francisco.
