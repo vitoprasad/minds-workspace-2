@@ -85,6 +85,23 @@ def test_messages_from_any_other_chat_are_ignored(tmp_path: Path) -> None:
     assert [report.request.text for report in reports] == ["mine"]
 
 
+def test_the_clients_own_start_command_is_not_a_request(tmp_path: Path) -> None:
+    """Opening a bot sends /start by itself; answering it would spend a run on a button press."""
+    transport = build_recording_telegram_transport(
+        available_updates=[
+            build_telegram_update(update_id=10, chat_id=int(OWNER_CHAT_ID), message_id=1, text="hello"),
+            build_telegram_update(update_id=11, chat_id=int(OWNER_CHAT_ID), message_id=2, text="/start"),
+            build_telegram_update(update_id=12, chat_id=int(OWNER_CHAT_ID), message_id=3, text="/deploy the app"),
+        ],
+    )
+    paths = build_telegram_inbox_paths(root_directory=tmp_path)
+    claim_chat_from_first_message(transport=transport, paths=paths)
+
+    reports = collect_pending_requests(transport=transport, paths=paths)
+
+    assert [report.request.text for report in reports] == ["hello", "/deploy the app"]
+
+
 def test_an_answered_request_stops_being_pending(tmp_path: Path) -> None:
     transport = build_recording_telegram_transport(
         available_updates=[

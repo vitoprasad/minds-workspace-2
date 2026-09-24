@@ -33,4 +33,8 @@ if [ "$TOTAL_PENDING_COUNT" -eq 0 ]; then
 fi
 
 log "$SLACK_PENDING_COUNT waiting on Slack, $TELEGRAM_PENDING_COUNT on Telegram; waking the agent"
+
+# run_automation.sh resolves the repo's own scripts relative to the working directory, so it has
+# to be started from the repo root rather than from this skill's scripts directory.
+cd "$ROOT"
 exec bash "$RUN_AUTOMATION" slack-request-inbox

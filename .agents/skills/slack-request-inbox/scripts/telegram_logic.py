@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from typing import Any
+from typing import Final
 
 from imbue.imbue_common.pure import pure
 from telegram_types import TelegramChatId
@@ -7,6 +8,11 @@ from telegram_types import TelegramInboxState
 from telegram_types import TelegramMessageId
 from telegram_types import TelegramRequest
 from telegram_types import TelegramUpdateId
+
+# Commands the Telegram client itself sends or offers, rather than something the user meant as a
+# request: opening a bot for the first time sends /start on its own. Answering these would spend an
+# agent run on a button press. Any other slash-prefixed text is treated as a normal request.
+TELEGRAM_CLIENT_COMMANDS: Final[frozenset[str]] = frozenset({"/start", "/help"})
 
 
 @pure
@@ -26,6 +32,8 @@ def extract_request(update: Any, allowed_chat_id: TelegramChatId) -> TelegramReq
         return None
     text = message.get("text")
     if not isinstance(text, str) or not text.strip():
+        return None
+    if text.strip().lower() in TELEGRAM_CLIENT_COMMANDS:
         return None
     message_id = message.get("message_id")
     if not isinstance(message_id, int):
