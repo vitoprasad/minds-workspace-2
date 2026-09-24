@@ -85,3 +85,8 @@ resolution = "use the manage-scheduled-tasks skill to run it weekly so it brings
 # mind already has.
 apt = []
 env_d_units = []
+
+[origin]
+repo_url = "https://github.com/vitoprasad/local-events-finder-mind"
+commit = "05b24355412e728458d73036a52c04c8d115b974"
+adopted_on = "2026-09-24"
