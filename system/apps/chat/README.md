@@ -195,6 +195,93 @@ default for new chats are set; `/fast on` and `/fast off` typed in the
 composer choose the mode too. The first time auto switches a chat in a
 workspace, a one-time notice over the model bar explains it.
 
+## Routing a chat by how hard its work is
+
+A chat can pick its own model. Routing is a per-chat setting with two modes
+(`routing_state.py`, kept in the chat's folder as `routing.json`,
+`GET`/`PUT /api/chats/<chat-id>/routing`): **off** (the chat stays on whatever
+model it was launched with until the user changes it) and **auto** (before each
+of the user's turns the chat weighs the work and moves itself to a fitting
+model). A new chat starts in the workspace's default (`routing_default` in
+`GET`/`PUT /api/settings`; off unless changed). The model card's **Pick For Me**
+row toggles it, and is interactive even on a read-only harness, because the row
+governs where the chat RUNS rather than which model a running session is on.
+
+The decision is made in three pieces, kept apart so each can be reasoned about
+on its own:
+
+* `routing_policy.py` -- the pure policy. `assess_routing_task` sorts a message
+  into one of three tiers (routine, standard, complex) from positive evidence
+  only, and a continuation ("keep going", "yes", an empty message) inherits the
+  tier the chat last settled on rather than reading as trivial.
+  `candidate_from_option` turns one account's catalog option into a scored
+  candidate, and `rank_routing_candidates` orders them. Only models with an
+  explicit reviewed profile can be selected at all, so an unfamiliar model is
+  never chosen on a guess and never trusted with hard work. Capability is a
+  floor rather than a preference: exhaustion never silently relaxes it.
+  `score_routing_candidate` breaks ties on a hash of the candidate's own
+  identity, so the order depends on nothing but the candidates -- not on the
+  order accounts were read in, nor on the order a harness lists its models.
+* `routing_service.py` -- the decision. `collect_candidates` builds the choice
+  set from the account index, so an account is routable the moment it is signed
+  in and stops being offered when it is deleted, with nothing to keep in step.
+  `decide_route` returns one of three actions, and the split between them
+  follows what each costs. Changing model inside the chat's own account is one
+  command to a running agent, so it happens whenever a better-fitting model is
+  there. Changing account retires the agent and starts a successor, so it
+  happens only when it must: the account cannot reach the work's floor, or it
+  has stopped answering. A merely better model elsewhere is never worth it,
+  which is also what stops a chat walking back and forth between two providers
+  as its turns vary in difficulty. Staying put needs no justification. A model
+  that scores exactly as well as the best keeps its place and only its effort
+  moves, so two models an account scores alike are not swapped for one another
+  on a tie-break the user could not name.
+* `server.py`'s `_route_this_turn` -- the wiring, on the send path between the
+  converging hold and the delivery. A move to another account hands this very
+  message to `begin_switch`, so it is held for the successor exactly as a
+  user-driven switch holds it, and the route answers 202 rather than delivering.
+  Nothing in there may take the turn down with it: a routing decision is an
+  optimization of a send the user already made, so every failure along the way
+  is logged and then ignored, and the message goes to the agent the chat is
+  already on.
+
+Two properties are worth stating outright, because the rest of the design
+follows from them.
+
+**Every decision is made at a user-turn boundary, never mid-turn.** That is what
+makes the recovery safe. A turn that half-ran is left alone rather than replayed
+somewhere else, so nothing a tool already did -- a message sent, a file written
+-- can happen twice because a provider failed.
+
+**"No candidates" is not the same as "cannot serve this."** An account whose
+model set nobody has seen yet (a harness whose set is per agent, before one of
+its agents has run) contributes no candidates for a reason that says nothing
+about its ability, so `decide_route` takes `is_current_account_known` and leaves
+such a chat where it is. Moving on no evidence would drag a chat off a perfectly
+good account every turn.
+
+An account that stops answering is recorded in the chat's `exhausted_accounts`
+and not chosen again. `is_provider_exhausted` reads the flags the harness
+parsers already stamp on the transcript event (`auth_errors.py` and
+`error_patterns.py` do the classifying, so no error text is re-parsed here) and
+counts only failures another provider would avoid: a spent quota, a rate limit,
+an overloaded provider, a rejected credential. A bad request is the chat's own
+doing and moving it would only repeat it. Only the most recent reply counts --
+a chat that has answered since is plainly still being served. Forgiveness is on
+the user's action, never a timer: turning routing off and on again clears the
+list, because a credit balance does not refill because a minute passed. A source
+that has stopped answering also cannot be asked to write a handoff summary, so
+the switch sets `skip_source_summary` on the handoff record and the successor is
+pointed at the saved transcript instead (`chat_handoffs.py`).
+
+The one part that goes stale is the profile table in `routing_policy.py`, which
+maps a model family to its (capability, speed) pair. A model missing from it is
+simply not routable -- routing leaves those chats alone rather than guessing --
+so a new model release degrades to the old behavior instead of a wrong choice,
+and adding it is one entry. That is deliberate: the alternative, inferring a
+profile from a model's name, gets the one case that matters (a new flagship)
+wrong in the expensive direction.
+
 ## Provider accounts
 
 Accounts live under `~/.minds/accounts` (`accounts.py`): one folder per
