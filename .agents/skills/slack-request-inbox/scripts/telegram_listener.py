@@ -38,7 +38,10 @@ UNCONFIGURED_BACKOFF_SECONDS: Final[float] = 60.0
 # agent answers every queued request in that single run.
 MIN_SECONDS_BETWEEN_WAKES: Final[float] = 20.0
 
-WAKE_HARD_TIMEOUT_SECONDS: Final[float] = 300.0
+# Waking the agent goes through message_chat.py, which falls back to driving a tmux pane and has
+# been measured at 90-300+ seconds on a loaded host. The limit is generous because a timeout here
+# costs a fast-lane wake; the request stays queued either way, so the cron check still covers it.
+WAKE_HARD_TIMEOUT_SECONDS: Final[float] = 900.0
 
 
 class ListenerSettings(FrozenModel):
