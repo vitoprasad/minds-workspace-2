@@ -19,3 +19,11 @@ and Templates line ends in the commit it was cut from.
 
 Each template this mind has adopted and the version it is on;
 `update-installed-template` appends here when it pulls a newer version.
+
+### local-events-finder — v1 (2026-09-24)
+
+Published to https://github.com/vitoprasad/local-events-finder-mind as a
+minds template, cut from source commit 172d346e8 on template base
+6efdaff2e0430cf3fb9d50de04a74acd3156c353. Contains the
+`.agents/skills/local-events-finder` skill only; the user's own calendar
+profile, event pulls and decision log are excluded.
