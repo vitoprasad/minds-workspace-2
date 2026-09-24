@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Bridge</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --surface: #fafafa;
+        --surface-2: #f2f2f2;
+        --line: #e6e6e6;
+        --line-strong: #d2d2d2;
+        --ink: #171717;
+        --gray-1: #444444;
+        --gray-2: #767676;
+        --gray-3: #a3a3a3;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; background: var(--bg); color: var(--ink);
+        font-family: var(--sans); font-size: 15px; line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font-family: inherit; cursor: pointer; }
+      a { color: var(--ink); }
+      [hidden] { display: none !important; }
+
+      .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-3); }
+
+      /* ---------- landing ---------- */
+      .landing { min-height: 100%; display: flex; justify-content: center; padding: 56px 24px 72px; }
+      .landing-col { width: 100%; max-width: 620px; }
+      .landing h1 { font-size: 30px; letter-spacing: -0.01em; margin: 10px 0 6px; }
+      .lead { color: var(--gray-1); font-size: 16px; margin: 0 0 34px; }
+
+      .section { border-top: 1px solid var(--line); padding: 26px 0; }
+      .section:last-of-type { border-bottom: 1px solid var(--line); }
+      .section h2 { font-size: 13px; font-family: var(--mono); font-weight: 600; letter-spacing: 0.04em;
+        text-transform: uppercase; color: var(--gray-2); margin: 0 0 16px; }
+
+      .does { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+      .does li { display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: start; }
+      .does .n { font-family: var(--mono); font-size: 12px; color: var(--gray-3); padding-top: 2px; }
+      .does .t { color: var(--gray-1); }
+      .does .t b { color: var(--ink); font-weight: 600; }
+
+      .field-label { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--gray-3); margin-bottom: 8px; }
+      .connect-row { display: flex; gap: 10px; }
+      .connect-row input {
+        flex: 1; background: var(--bg); color: var(--ink); border: 1px solid var(--line-strong);
+        border-radius: 7px; padding: 11px 13px; font-family: var(--mono); font-size: 14px;
+      }
+      .connect-row input:focus { outline: none; border-color: var(--ink); }
+      .btn {
+        border: 1px solid var(--ink); background: var(--ink); color: #fff; border-radius: 7px;
+        padding: 11px 18px; font-size: 14px; font-weight: 600; white-space: nowrap;
+      }
+      .btn:hover { background: #000; }
+      .btn.ghost { background: var(--bg); color: var(--ink); }
+      .btn.ghost:hover { background: var(--surface-2); }
+      .form-note { margin-top: 10px; font-size: 12.5px; color: var(--gray-2); min-height: 16px; }
+      .form-note.err { color: var(--ink); font-weight: 600; }
+
+      .code {
+        position: relative; background: var(--surface); border: 1px solid var(--line);
+        border-radius: 8px; padding: 14px 44px 14px 14px; margin: 0 0 12px;
+        font-family: var(--mono); font-size: 12.5px; color: var(--gray-1);
+        white-space: pre-wrap; word-break: break-word; line-height: 1.6;
+      }
+      .code b { color: var(--ink); font-weight: 600; }
+      .copy {
+        position: absolute; top: 8px; right: 8px; background: var(--bg); border: 1px solid var(--line-strong);
+        color: var(--gray-2); border-radius: 6px; padding: 3px 8px; font-family: var(--mono);
+        font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;
+      }
+      .copy:hover { color: var(--ink); border-color: var(--ink); }
+      .muted { color: var(--gray-2); font-size: 13px; }
+      .muted code, .inline-code { font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+      .qr-wrap { margin: 4px 0 12px; }
+      .qr-wrap img { width: 148px; height: 148px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 8px; display: block; }
+
+      /* ---------- app strip ---------- */
+      #app { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+      .strip {
+        flex: none;
+        display: flex; align-items: center; gap: 16px; padding: 11px 18px;
+        border-bottom: 1px solid var(--line); background: var(--surface);
+        font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-2);
+      }
+      .strip .brand { color: var(--ink); font-weight: 600; letter-spacing: 0.12em; }
+      .strip .link-state { display: flex; align-items: center; gap: 8px; }
+      .strip .spacer { flex: 1; }
+      .strip .sign-out { background: var(--bg); border: 1px solid var(--line-strong); color: var(--gray-2);
+        border-radius: 6px; padding: 5px 11px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+      .strip .sign-out:hover { border-color: var(--ink); color: var(--ink); }
+
+      .dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--gray-3); background: var(--bg); flex: none; }
+      .dot.live { background: var(--ink); border-color: var(--ink); }
+      .dot.warn { background: var(--gray-3); border-color: var(--gray-3); }
+      .dot.down { background: var(--bg); border-color: var(--ink); }
+      /* agent activity: active (thinking / running a tool) pulses; idle is hollow */
+      .dot.active { background: var(--ink); border-color: var(--ink); animation: dotpulse 1.6s ease-in-out infinite; }
+      .dot.idle { background: var(--bg); border-color: var(--gray-3); }
+      @keyframes dotpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.28; } }
+      @media (prefers-reduced-motion: reduce) { .dot.active { animation: none; } }
+
+      /* ---------- shell ---------- */
+      .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 264px 1fr; }
+      .rail { border-right: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+      .rail-head { padding: 15px 16px 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+        text-transform: uppercase; color: var(--gray-3); display: flex; justify-content: space-between; }
+      .agent-list { overflow-y: auto; padding: 4px 8px 12px; flex: 1; min-height: 0; }
+      .agent { width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px;
+        padding: 10px 12px; margin-bottom: 3px; color: var(--ink); display: flex; flex-direction: column; gap: 3px; }
+      .agent:hover { background: var(--surface-2); }
+      .agent.active { background: var(--bg); border-color: var(--line-strong); }
+      .agent .cs { font-family: var(--mono); font-size: 13.5px; display: flex; align-items: center; gap: 8px; }
+      .agent .st { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-3); padding-left: 16px; }
+
+      .channel { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+      .ch-head { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; background: var(--bg); }
+      .ch-head .name { font-size: 17px; font-weight: 600; }
+      .ch-head .id { font-family: var(--mono); font-size: 11px; color: var(--gray-3); }
+      .ch-head .st { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-2); margin-left: auto; }
+
+      .log { flex: 1; overflow-y: auto; padding: 22px 20px 8px; min-height: 0; }
+      .log-inner { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+      .msg { display: grid; grid-template-columns: 78px 1fr; gap: 14px; }
+      .msg .gutter { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray-3); text-align: right; padding-top: 3px; }
+      .msg .body { border-left: 2px solid var(--line-strong); padding: 2px 0 2px 14px; white-space: pre-wrap; word-break: break-word; color: var(--ink); }
+      .msg.user .body { border-color: var(--ink); }
+      .msg.user .gutter { color: var(--ink); font-weight: 600; }
+      .msg.assistant .body { border-color: var(--line-strong); }
+      .msg.assistant .gutter { color: var(--gray-2); }
+      .msg .meta { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+      .msg .ts { font-family: var(--mono); font-size: 10px; color: var(--gray-3); }
+      .raw-toggle { background: none; border: none; color: var(--gray-3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; padding: 0; }
+      .raw-toggle:hover { color: var(--ink); }
+      .raw { margin-top: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px;
+        font-family: var(--mono); font-size: 11.5px; color: var(--gray-1); overflow-x: auto; white-space: pre; }
+
+      .tool { display: grid; grid-template-columns: 78px 1fr; gap: 14px; color: var(--gray-2); font-family: var(--mono); font-size: 12px; }
+      .tool .gutter { text-align: right; color: var(--gray-3); font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; }
+      .tool .body { border-left: 2px solid var(--line); padding-left: 14px; white-space: pre-wrap; word-break: break-word; }
+      .tool .tname { color: var(--gray-1); }
+
+      .empty { color: var(--gray-3); font-family: var(--mono); font-size: 13px; text-align: center; padding: 60px 0; }
+
+      .composer { border-top: 1px solid var(--line); padding: 14px 20px; background: var(--surface); }
+      .composer-inner { max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+      textarea { flex: 1; resize: none; background: var(--bg); color: var(--ink); border: 1px solid var(--line-strong);
+        border-radius: 9px; padding: 11px 13px; font-family: var(--sans); font-size: 15px; line-height: 1.45; min-height: 46px; max-height: 200px; }
+      textarea:focus { outline: none; border-color: var(--ink); }
+      textarea::placeholder { color: var(--gray-3); }
+      .send { background: var(--ink); color: #fff; border: 1px solid var(--ink); border-radius: 9px; padding: 0 20px; height: 46px; font-weight: 600; font-size: 14px; }
+      .send:hover { background: #000; }
+      .send:disabled { opacity: 0.4; cursor: default; }
+      .hint { max-width: 820px; margin: 8px auto 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.03em; color: var(--gray-3); display: flex; justify-content: space-between; }
+      .hint .err { color: var(--ink); }
+
+      @media (max-width: 720px) {
+        .shell { grid-template-columns: 1fr; }
+        .rail { display: none; }
+        .msg, .tool { grid-template-columns: 58px 1fr; gap: 10px; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============ landing / front door ============ -->
+    <main class="landing" id="landing" hidden>
+      <div class="landing-col">
+        <div class="eyebrow">Chat Bridge</div>
+        <h1>Talk to this workspace's agents.</h1>
+        <p class="lead">One secure link for you and your agents: see every agent here, send messages into any of their chats, and read the conversations back &mdash; live.</p>
+
+        <section class="section">
+          <h2>What you can do</h2>
+          <ul class="does">
+            <li><span class="n">01</span><span class="t"><b>See the agents.</b> Everyone running in this workspace, with their status.</span></li>
+            <li><span class="n">02</span><span class="t"><b>Send a message in.</b> It's typed straight into that agent's chat, exactly as if you typed it here.</span></li>
+            <li><span class="n">03</span><span class="t"><b>Read the conversation back.</b> Full history, updating live as the agent works.</span></li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Open it in your browser</h2>
+          <label class="field-label" for="token-input">Paste your bridge token</label>
+          <form id="gate-form" class="connect-row">
+            <input id="token-input" type="password" autocomplete="current-password" spellcheck="false" placeholder="bridge token" />
+            <button class="btn" type="submit">Connect</button>
+          </form>
+          <div class="form-note" id="gate-note">Your token is in <span class="inline-code">data/.secrets/chat_bridge.env</span> on the workspace host.</div>
+        </section>
+
+        <section class="section">
+          <h2>Use it on your phone</h2>
+          <p class="muted" style="margin-top:0;" id="phone-status">Setting up your public link&hellip;</p>
+          <div id="phone-ready" hidden>
+            <div class="code" id="phone-url-box"></div>
+            <div class="qr-wrap"><img id="qr-img" alt="QR code to open Chat Bridge on your phone" /></div>
+            <p class="muted">Open that link on your phone (or scan the code), then paste the same token to connect. The link changes if the tunnel restarts &mdash; check here for the current one.</p>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Connect an agent or script</h2>
+          <p class="muted" style="margin-top:0;">Same token, sent as a bearer header, against this address:</p>
+          <div class="code" id="curl-snippet"></div>
+          <p class="muted">Point your agent at this guide page (llms.txt style) &mdash; it has the full API:</p>
+          <div class="code" id="guide-box"></div>
+          <p class="muted">Or copy the one-file Python client (<span class="inline-code">chat-bridge-client</span>) &mdash; usage and the full endpoint list are also in the service's README.</p>
+        </section>
+      </div>
+    </main>
+
+    <!-- ============ app / console ============ -->
+    <div id="app" hidden>
+      <div class="strip">
+        <span class="brand">Chat Bridge</span>
+        <span class="link-state"><span class="dot" id="link-dot"></span><span id="link-text">connecting</span></span>
+        <span class="spacer"></span>
+        <button class="sign-out" id="sign-out">Disconnect</button>
+      </div>
+      <div class="shell">
+        <aside class="rail" id="rail">
+          <div class="rail-head"><span>Agents</span><span id="agent-count"></span></div>
+          <div class="agent-list" id="agent-list"></div>
+        </aside>
+        <section class="channel">
+          <div class="ch-head">
+            <span class="name" id="ch-name">Select an agent</span>
+            <span class="id" id="ch-id"></span>
+            <span class="st" id="ch-state"></span>
+          </div>
+          <div class="log" id="log"><div class="log-inner"><div class="empty" id="empty">Choose an agent on the left to read its conversation.</div></div></div>
+          <div class="composer">
+            <div class="composer-inner">
+              <textarea id="input" placeholder="Message this agent&hellip;  (Enter to send, Shift+Enter for a new line)" rows="1" disabled></textarea>
+              <button class="send" id="send" disabled>Send</button>
+            </div>
+            <div class="hint"><span id="hint-left">Messages are typed straight into the agent's session.</span><span class="err" id="hint-err"></span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+      const base = (() => { let p = location.pathname; return p.endsWith("/") ? p : p + "/"; })();
+      const api = (rel) => base + rel;
+      const externalBase = location.origin + base.replace(/\/$/, "");
+
+      const el = (id) => document.getElementById(id);
+      const state = { agents: [], current: null, es: null, seen: new Set(), events: [] };
+
+      function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+      function fmtTime(ts) { if (!ts) return ""; const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+      // ---- activity: thinking / running a tool / idle, from the transcript tail ----
+      // Mirrors the workspace's own logic: an unmatched tool call => running a tool;
+      // a trailing user/tool message => thinking; a trailing assistant reply => idle.
+      function deriveActivity(events) {
+        const pending = new Set();
+        for (const e of events) {
+          if (e.type === "assistant_message") { for (const c of (e.tool_calls || [])) { if (c.tool_call_id) pending.add(c.tool_call_id); } }
+          else if (e.type === "tool_result") { if (e.tool_call_id) pending.delete(e.tool_call_id); }
+        }
+        if (pending.size > 0) return "tool_running";
+        const last = events.length ? events[events.length - 1].type : null;
+        if (last === "user_message" || last === "tool_result") return "thinking";
+        return "idle";
+      }
+      function pendingToolName(events) {
+        const names = new Map();
+        for (const e of events) {
+          if (e.type === "assistant_message") { for (const c of (e.tool_calls || [])) { if (c.tool_call_id) names.set(c.tool_call_id, c.tool_name || "tool"); } }
+          else if (e.type === "tool_result") { if (e.tool_call_id) names.delete(e.tool_call_id); }
+        }
+        let last = null; for (const v of names.values()) last = v; return last;
+      }
+      function activityDot(activity) { return (activity === "thinking" || activity === "tool_running") ? "active" : "idle"; }
+      function activityLabel(a) {
+        if (a.activity === "tool_running") return "running tool";
+        if (a.activity === "thinking") return "thinking";
+        const s = (a.state || "").toUpperCase();
+        if (s === "RUNNING" || s === "RUNNING_UNKNOWN_AGENT_TYPE") return "idle";
+        return (a.state || "idle").toLowerCase();
+      }
+
+      // ---- landing: copy helper, agent snippets, and the public phone link ----
+      function copyText(text, btnId) {
+        navigator.clipboard.writeText(text).then(() => {
+          const b = el(btnId); if (!b) return; const prev = b.textContent; b.textContent = "Copied";
+          setTimeout(() => { b.textContent = prev; }, 1400);
+        }).catch(() => {});
+      }
+
+      function renderAgentSection(effectiveBase) {
+        const curl = 'curl -s -H "Authorization: Bearer $CHAT_BRIDGE_TOKEN" "' + effectiveBase + '/api/agents"';
+        el("curl-snippet").innerHTML =
+          'curl -s -H "Authorization: Bearer <b>$CHAT_BRIDGE_TOKEN</b>" \\\n  "' + esc(effectiveBase) + '/api/agents"' +
+          '<button class="copy" type="button" id="copy-curl">Copy</button>';
+        el("copy-curl").addEventListener("click", () => copyText(curl, "copy-curl"));
+        const guide = effectiveBase + "/llms.txt";
+        el("guide-box").innerHTML = '<b>' + esc(guide) + '</b><button class="copy" type="button" id="copy-guide">Copy</button>';
+        el("copy-guide").addEventListener("click", () => copyText(guide, "copy-guide"));
+      }
+
+      async function loadPublicUrl() {
+        let publicUrl = null;
+        try { const r = await fetch(api("api/public-url")); const d = await r.json(); publicUrl = d.url || null; } catch (_e) {}
+        if (publicUrl) {
+          el("phone-status").hidden = true; el("phone-ready").hidden = false;
+          el("phone-url-box").innerHTML = '<b>' + esc(publicUrl) + '</b><button class="copy" type="button" id="copy-phone">Copy</button>';
+          el("copy-phone").addEventListener("click", () => copyText(publicUrl, "copy-phone"));
+          el("qr-img").src = api("api/qr.svg") + "?t=" + Date.now();
+        } else {
+          el("phone-status").hidden = false; el("phone-ready").hidden = true;
+          el("phone-status").textContent = "Your public link is still starting up — refresh in a few seconds.";
+        }
+        // Agents connect from outside, so prefer the public link once it exists.
+        renderAgentSection(publicUrl || externalBase);
+      }
+
+      // ---- auth / session ----
+      async function checkSession() {
+        try {
+          const r = await fetch(api("api/session"), { credentials: "same-origin" });
+          if (!r.ok) return false;
+          const d = await r.json(); setLink(d.upstream_ok); return true;
+        } catch (_e) { return false; }
+      }
+      function setLink(ok) {
+        el("link-dot").className = "dot " + (ok ? "live" : "down");
+        el("link-text").textContent = ok ? "connected" : "interface unreachable";
+      }
+      function showLanding() { el("app").hidden = true; el("landing").hidden = false; renderAgentSection(externalBase); loadPublicUrl(); el("token-input").focus(); }
+      function showApp() { el("landing").hidden = true; el("app").hidden = false; }
+
+      el("gate-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const note = el("gate-note"); note.classList.remove("err");
+        note.textContent = "Your token is in data/.secrets/chat_bridge.env on the workspace host.";
+        const token = el("token-input").value.trim();
+        if (!token) return;
+        try {
+          const r = await fetch(api("api/login"), {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }),
+          });
+          if (!r.ok) { note.textContent = "That token was not accepted."; note.classList.add("err"); return; }
+          el("token-input").value = ""; await boot();
+        } catch (_e) { note.textContent = "Could not reach the bridge."; note.classList.add("err"); }
+      });
+
+      el("sign-out").addEventListener("click", async () => {
+        try { await fetch(api("api/logout"), { method: "POST", credentials: "same-origin" }); } catch (_e) {}
+        if (state.es) { state.es.close(); state.es = null; }
+        showLanding();
+      });
+
+      // ---- agents ----
+      async function loadAgents() {
+        // ?activity=1 asks the bridge to compute each agent's real status (thinking /
+        // running a tool / idle) from its transcript tail, not just lifecycle state.
+        const r = await fetch(api("api/agents?activity=1"), { credentials: "same-origin" });
+        if (r.status === 401) { showLanding(); return; }
+        if (!r.ok) { setLink(false); return; }
+        const d = await r.json(); state.agents = d.agents || []; setLink(true); renderAgents();
+      }
+      function renderAgents() {
+        el("agent-count").textContent = state.agents.length ? String(state.agents.length) : "";
+        const list = el("agent-list"); list.innerHTML = "";
+        for (const a of state.agents) {
+          const b = document.createElement("button");
+          b.className = "agent" + (state.current === a.id ? " active" : "");
+          b.innerHTML = '<span class="cs"><span class="dot ' + activityDot(a.activity) + '"></span>' + esc(a.name) + "</span>" +
+            '<span class="st">' + esc(activityLabel(a)) + "</span>";
+          b.addEventListener("click", () => selectAgent(a));
+          list.appendChild(b);
+        }
+      }
+
+      // ---- conversation ----
+      async function selectAgent(a) {
+        state.current = a.id; state.seen = new Set(); state.events = []; renderAgents();
+        el("ch-name").textContent = a.name; el("ch-id").textContent = a.id; el("ch-state").textContent = "";
+        el("input").disabled = false; el("send").disabled = false; el("input").focus();
+        const log = el("log").querySelector(".log-inner");
+        log.innerHTML = '<div class="empty">Loading conversation&hellip;</div>';
+        try {
+          const r = await fetch(api("api/agents/" + encodeURIComponent(a.id) + "/events?limit=200"), { credentials: "same-origin" });
+          if (!r.ok) { log.innerHTML = '<div class="empty">Could not load this conversation.</div>'; return; }
+          const d = await r.json(); log.innerHTML = "";
+          const events = d.events || [];
+          if (!events.length) log.innerHTML = '<div class="empty">No messages yet.</div>';
+          for (const ev of events) appendEvent(ev, false);
+          updateSelectedActivity();
+          scrollLog(); openStream(a.id);
+        } catch (_e) { log.innerHTML = '<div class="empty">Could not load this conversation.</div>'; }
+      }
+
+      function setHeaderActivity(activity) {
+        const dot = activityDot(activity);
+        let label;
+        if (activity === "tool_running") { const t = pendingToolName(state.events); label = t ? ("Running " + t + "…") : "Running tool…"; }
+        else if (activity === "thinking") label = "Thinking…";
+        else label = "Idle";
+        el("ch-state").innerHTML = '<span class="dot ' + dot + '"></span>' + esc(label);
+      }
+      function updateSelectedActivity() { setHeaderActivity(deriveActivity(state.events)); }
+
+      function openStream(agentId) {
+        if (state.es) { state.es.close(); state.es = null; }
+        const es = new EventSource(api("api/agents/" + encodeURIComponent(agentId) + "/stream"), { withCredentials: true });
+        es.onmessage = (m) => {
+          if (state.current !== agentId) return;
+          let ev; try { ev = JSON.parse(m.data); } catch (_e) { return; }
+          const emptyEl = el("log").querySelector(".empty"); if (emptyEl) emptyEl.remove();
+          appendEvent(ev, true);
+        };
+        es.onerror = () => {};
+        state.es = es;
+      }
+
+      function appendEvent(ev, isLive) {
+        const key = ev.event_id || JSON.stringify(ev);
+        if (state.seen.has(key)) return;
+        state.seen.add(key);
+        const log = el("log").querySelector(".log-inner");
+        const type = ev.type;
+        if (type === "user_message") {
+          log.appendChild(messageRow("user", "You", ev.content || ev.text || "", ev));
+        } else if (type === "assistant_message") {
+          const text = (ev.text || "").trim();
+          if (text) log.appendChild(messageRow("assistant", "Agent", text, ev));
+          for (const c of (ev.tool_calls || [])) log.appendChild(toolRow("calls", c.tool_name || "tool"));
+        } else if (type === "tool_result") {
+          log.appendChild(toolRow("result", ev.tool_name || "tool"));
+        } else { return; }
+        state.events.push(ev);
+        if (isLive) { updateSelectedActivity(); scrollLog(); }
+      }
+
+      function messageRow(kind, who, text, ev) {
+        const wrap = document.createElement("div");
+        wrap.className = "msg " + kind;
+        wrap.innerHTML = '<div class="gutter">' + esc(who) + "</div>" +
+          '<div class="body">' + esc(text || "(no text)") +
+          '<div class="meta"><span class="ts">' + esc(fmtTime(ev.timestamp)) + "</span>" +
+          '<button class="raw-toggle" type="button">raw</button></div>' +
+          '<pre class="raw" hidden></pre></div>';
+        const btn = wrap.querySelector(".raw-toggle"), pre = wrap.querySelector(".raw");
+        btn.addEventListener("click", () => {
+          if (pre.hidden) { pre.textContent = JSON.stringify(ev, null, 2); pre.hidden = false; btn.textContent = "hide"; }
+          else { pre.hidden = true; btn.textContent = "raw"; }
+        });
+        return wrap;
+      }
+
+      function toolRow(kind, toolName) {
+        const wrap = document.createElement("div");
+        wrap.className = "tool";
+        wrap.innerHTML = '<div class="gutter">' + (kind === "calls" ? "calls" : "result") + "</div>" +
+          '<div class="body"><span class="tname">' + esc(toolName) + "</span></div>";
+        return wrap;
+      }
+
+      function scrollLog() { const l = el("log"); l.scrollTop = l.scrollHeight; }
+
+      // ---- composer ----
+      async function sendMessage() {
+        const input = el("input"); const text = input.value.trim();
+        if (!text || !state.current) return;
+        el("hint-err").textContent = ""; el("send").disabled = true;
+        try {
+          const r = await fetch(api("api/agents/" + encodeURIComponent(state.current) + "/message"), {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }),
+          });
+          if (r.status === 401) { showLanding(); return; }
+          if (!r.ok) { const d = await r.json().catch(() => ({})); el("hint-err").textContent = d.error || "Message failed to send."; return; }
+          input.value = ""; input.style.height = "auto";
+          // Optimistic: the agent will start processing; light the indicator now,
+          // the live stream then keeps it accurate.
+          setHeaderActivity("thinking");
+        } catch (_e) { el("hint-err").textContent = "Could not reach the bridge."; }
+        finally { el("send").disabled = false; input.focus(); }
+      }
+      el("send").addEventListener("click", sendMessage);
+      el("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+      el("input").addEventListener("input", (e) => { const t = e.target; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; });
+
+      // ---- boot ----
+      async function boot() { showApp(); await loadAgents(); }
+      let pollTimer = null;
+      function startPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = setInterval(() => { if (!el("app").hidden) loadAgents(); }, 5000); }
+      (async function init() {
+        const ok = await checkSession();
+        if (ok) { await boot(); } else { showLanding(); }
+        startPolling();
+      })();
+    </script>
+  </body>
+</html>

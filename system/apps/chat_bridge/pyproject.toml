@@ -1,0 +1,25 @@
+[project]
+name = "chat-bridge"
+version = "0.1.0"
+description = "Token-authenticated API and UI to send messages into agent chats and read conversations back"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+    "flask-sock>=0.7",
+    "werkzeug>=3.0",
+    "httpx>=0.27",
+    "segno>=1.6",
+]
+
+[project.scripts]
+chat-bridge = "chat_bridge.runner:main"
+chat-bridge-client = "chat_bridge.client:main"
+chat-bridge-tunnel = "chat_bridge.tunnel:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chat_bridge"]
