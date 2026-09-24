@@ -142,15 +142,26 @@ The user is reading this on a phone, so the ordinary user-facing language rules
 
 ## How it is scheduled
 
-`scripts/check_requests.sh` is the deterministic check, run every 5 minutes by
-the cron entry in `data/.state/cron.d/slack-request-inbox` (installed live to
+`scripts/check_requests.sh` is the deterministic check, run every minute by the
+cron entry in `data/.state/cron.d/slack-request-inbox` (installed live to
 `/etc/cron.d/`). It reads both queues and wakes an agent **only** when something
 is waiting, so an idle inbox costs nothing but one API call per configured front
 door. Editing or removing that entry is the on/off switch -- see the
 manage-scheduled-tasks skill.
 
-The 5 minute cadence sets the user's expectation: a reply arrives within a few
-minutes, not instantly. Tell them that rather than implying it is live.
+**The poll is not the bottleneck, so do not promise a speed it cannot hit.**
+Measured end to end, the poll contributes up to a minute, then
+`run_automation.sh` spends roughly 90 seconds clearing the singleton agent's
+chat and re-sending the command, and only then does the agent start thinking.
+Two and a half minutes is the realistic floor with this design; tell the user
+"a couple of minutes", never "instantly".
+
+Getting below that means removing the wake cost, not polling harder -- a
+long-lived process that holds a Telegram long-poll open
+(`getUpdates?timeout=25` returns the moment a message lands) and an agent that
+stays warm between requests. Slack cannot go that way on these credentials:
+real-time Slack needs a Slack app with Socket Mode, and this workspace has a
+user token, not an app.
 
 ## What is stored
 
