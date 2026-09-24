@@ -3255,7 +3255,7 @@ def test_turning_routing_back_on_forgives_the_accounts_that_failed_the_chat(app:
     assert back_on.get_json()["state"]["exhausted_accounts"] == []
 
 
-def test_a_routed_chat_on_an_account_nothing_is_known_about_runs_the_turn_where_it_is() -> None:
+def test_a_routed_chat_on_an_account_nothing_is_known_about_runs_the_turn_where_it_is(tmp_path: Path) -> None:
     """Routing never costs the user a turn. The chat's agent names an account the index does not hold, so
     nothing is known about what it offers and the message is delivered as usual -- while the difficulty the
     chat settled on is still kept for the turns that follow."""
@@ -3270,7 +3270,7 @@ def test_a_routed_chat_on_an_account_nothing_is_known_about_runs_the_turn_where_
     )
     agent_info.agent_state_dir.mkdir(parents=True, exist_ok=True)
     messenger = RecordingMngrMessenger()
-    manager = AgentManager.build(WebSocketBroadcaster(), messenger=messenger)
+    manager = AgentManager.build(WebSocketBroadcaster(), messenger=messenger, chat_files_root=tmp_path)
     manager.note_agent_list_known()
     seed_agent_state(manager, agent_id, name="routed-agent", labels={"account": "an-account-no-index-holds"})
     client = create_application(build_test_state(agent_manager=manager)).test_client()
