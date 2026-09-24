@@ -113,7 +113,7 @@
       .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 264px 1fr; }
       .rail { border-right: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
       .rail-head { padding: 15px 16px 8px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
-        text-transform: uppercase; color: var(--gray-3); display: flex; justify-content: space-between; }
+        text-transform: uppercase; color: var(--gray-3); display: flex; justify-content: space-between; align-items: center; }
       .agent-list { overflow-y: auto; padding: 4px 8px 12px; flex: 1; min-height: 0; }
       .agent { width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px;
         padding: 10px 12px; margin-bottom: 3px; color: var(--ink); display: flex; flex-direction: column; gap: 3px; }
@@ -123,10 +123,27 @@
       .agent .st { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-3); padding-left: 16px; }
 
       .channel { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-      .ch-head { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; background: var(--bg); }
-      .ch-head .name { font-size: 17px; font-weight: 600; }
+      .ch-head { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; background: var(--bg); }
+      .ch-head .name { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .ch-head .id { font-family: var(--mono); font-size: 11px; color: var(--gray-3); }
-      .ch-head .st { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-2); margin-left: auto; }
+      .ch-head .st { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray-2); margin-left: auto; white-space: nowrap; }
+
+      .chat-nav-btn {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        background: var(--surface-2);
+        border: 1px solid var(--line-strong);
+        border-radius: 7px;
+        padding: 6px 12px;
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+        white-space: nowrap;
+        flex: none;
+      }
+      .chat-nav-btn:hover { background: var(--line); }
 
       .log { flex: 1; overflow-y: auto; padding: 22px 20px 8px; min-height: 0; }
       .log-inner { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
@@ -165,9 +182,29 @@
       .hint .err { color: var(--ink); }
 
       @media (max-width: 720px) {
-        .shell { grid-template-columns: 1fr; }
-        .rail { display: none; }
-        .msg, .tool { grid-template-columns: 58px 1fr; gap: 10px; }
+        #app { height: 100dvh; }
+        .shell { display: flex; flex-direction: column; height: 100%; position: relative; }
+        .chat-nav-btn { display: inline-flex; }
+        
+        /* Mobile view toggling: show either chat list (rail) or conversation (channel) */
+        .shell.show-rail .rail { display: flex; flex: 1; width: 100%; border-right: none; }
+        .shell.show-rail .channel { display: none; }
+        
+        .shell.show-chat .rail { display: none; }
+        .shell.show-chat .channel { display: flex; flex: 1; width: 100%; }
+
+        .shell:not(.show-chat):not(.show-rail) .rail { display: flex; flex: 1; width: 100%; border-right: none; }
+        .shell:not(.show-chat):not(.show-rail) .channel { display: none; }
+
+        .ch-head { padding: 10px 14px; gap: 8px; }
+        .ch-head .id { display: none; }
+        .log { padding: 14px 12px 6px; }
+        .msg, .tool { grid-template-columns: 50px 1fr; gap: 8px; }
+        .composer { padding: 10px 12px; }
+        textarea { font-size: 16px; padding: 10px 12px; min-height: 44px; }
+        .send { height: 44px; padding: 0 16px; }
+        .strip { padding: 9px 14px; }
+        .strip .brand { font-size: 11px; }
       }
     </style>
   </head>
@@ -227,18 +264,22 @@
         <span class="spacer"></span>
         <button class="sign-out" id="sign-out">Disconnect</button>
       </div>
-      <div class="shell">
+      <div class="shell show-rail" id="shell">
         <aside class="rail" id="rail">
-          <div class="rail-head"><span>Agents</span><span id="agent-count"></span></div>
+          <div class="rail-head">
+            <span>Chats (<span id="agent-count"></span>)</span>
+            <button type="button" class="chat-nav-btn" id="btn-return-chat" style="display:none;">View chat ›</button>
+          </div>
           <div class="agent-list" id="agent-list"></div>
         </aside>
-        <section class="channel">
+        <section class="channel" id="channel">
           <div class="ch-head">
+            <button type="button" class="chat-nav-btn" id="btn-back-rail">‹ Chats</button>
             <span class="name" id="ch-name">Select an agent</span>
             <span class="id" id="ch-id"></span>
             <span class="st" id="ch-state"></span>
           </div>
-          <div class="log" id="log"><div class="log-inner"><div class="empty" id="empty">Choose an agent on the left to read its conversation.</div></div></div>
+          <div class="log" id="log"><div class="log-inner"><div class="empty" id="empty">Choose a chat from the list to view its conversation.</div></div></div>
           <div class="composer">
             <div class="composer-inner">
               <textarea id="input" placeholder="Message this agent&hellip;  (Enter to send, Shift+Enter for a new line)" rows="1" disabled></textarea>
@@ -339,8 +380,38 @@
         el("link-dot").className = "dot " + (ok ? "live" : "down");
         el("link-text").textContent = ok ? "connected" : "interface unreachable";
       }
+      function showChatView() {
+        const shell = el("shell");
+        if (shell) {
+          shell.classList.remove("show-rail");
+          shell.classList.add("show-chat");
+        }
+        const returnBtn = el("btn-return-chat");
+        if (returnBtn) {
+          returnBtn.style.display = state.current ? "inline-flex" : "none";
+        }
+      }
+      function showRailView() {
+        const shell = el("shell");
+        if (shell) {
+          shell.classList.remove("show-chat");
+          shell.classList.add("show-rail");
+        }
+        const returnBtn = el("btn-return-chat");
+        if (returnBtn) {
+          returnBtn.style.display = state.current ? "inline-flex" : "none";
+        }
+      }
       function showLanding() { el("app").hidden = true; el("landing").hidden = false; renderAgentSection(externalBase); loadPublicUrl(); el("token-input").focus(); }
-      function showApp() { el("landing").hidden = true; el("app").hidden = false; }
+      function showApp() {
+        el("landing").hidden = true;
+        el("app").hidden = false;
+        if (!state.current) {
+          showRailView();
+        } else {
+          showChatView();
+        }
+      }
 
       el("gate-form").addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -389,6 +460,7 @@
       // ---- conversation ----
       async function selectAgent(a) {
         state.current = a.id; state.seen = new Set(); state.events = []; renderAgents();
+        showChatView();
         el("ch-name").textContent = a.name; el("ch-id").textContent = a.id; el("ch-state").textContent = "";
         el("input").disabled = false; el("send").disabled = false; el("input").focus();
         const log = el("log").querySelector(".log-inner");
@@ -495,6 +567,10 @@
       el("send").addEventListener("click", sendMessage);
       el("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
       el("input").addEventListener("input", (e) => { const t = e.target; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 200) + "px"; });
+      const backBtn = el("btn-back-rail");
+      if (backBtn) backBtn.addEventListener("click", showRailView);
+      const returnBtn = el("btn-return-chat");
+      if (returnBtn) returnBtn.addEventListener("click", showChatView);
 
       // ---- boot ----
       async function boot() { showApp(); await loadAgents(); }
