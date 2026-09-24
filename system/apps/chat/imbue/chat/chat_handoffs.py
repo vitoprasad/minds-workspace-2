@@ -545,6 +545,9 @@ class HandoffRunner:
         if is_summary_fresh(stale_mtime, last_user_turn_epoch(watcher.get_all_events())):
             logger.info("Handoff of chat {}: reusing the fresh summary at {}", chat_id, path)
             return SummaryOutcome.REUSED
+        if handoff.skip_source_summary:
+            logger.info("Handoff of chat {}: unavailable source; successor will read the transcript", chat_id)
+            return SummaryOutcome.MISSING
         path.parent.mkdir(parents=True, exist_ok=True)
         try:
             sent = self._deps.deliver(agent_info, summary_request_message(path), f"handoff-summary-{handoff_id}")

@@ -1,4 +1,5 @@
-"""The chat app's workspace-wide settings: the fast mode a new chat starts in, and whether the user has been told.
+"""The chat app's workspace-wide settings: the fast mode a new chat starts in, whether the user has been
+told, and whether a new chat picks its model by how hard the work looks.
 
 One small JSON file beside the chat app's other state (``data/.apps/chat/settings.json``),
 read on every use so an edit from another process lands without a restart, and written whole.
@@ -40,9 +41,23 @@ class FastModeMode(LowerCaseStrEnum):
     ON = auto()
 
 
+class RoutingMode(LowerCaseStrEnum):
+    """Whether a chat picks its own model, weighing each of the user's turns by how much reasoning it needs."""
+
+    # The chat stays on whatever model it was launched with until the user changes it.
+    OFF = auto()
+    # Before each of the user's turns the chat weighs the work and moves itself to a fitting model,
+    # across accounts when its own account cannot serve the work or has stopped answering.
+    AUTO = auto()
+
+
 class ChatSettings(FrozenModel):
     """What the settings file holds. Every field has a default, so an older file reads whole."""
 
+    routing_default: RoutingMode = Field(
+        default=RoutingMode.OFF,
+        description="Whether a new chat weighs each turn's difficulty and moves itself to a fitting model",
+    )
     fast_mode_default: FastModeMode = Field(
         default=FastModeMode.AUTO,
         description="The fast mode a new chat starts in",

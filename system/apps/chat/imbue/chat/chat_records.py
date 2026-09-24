@@ -40,7 +40,7 @@ logger = _loguru_logger
 
 # Bumped when the on-disk shape changes. A record whose version is newer than this refuses to
 # load, so an older build never reads a newer record wrong.
-RECORD_VERSION: Final[int] = 2
+RECORD_VERSION: Final[int] = 3
 
 DEFAULT_CHAT_RECORDS_ROOT: Final[Path] = Path("data/.apps/chat/chats")
 
@@ -181,6 +181,10 @@ class ChatHandoffRecord(ChatTransitionRecord):
     model_pick: ModelPick | None = Field(
         default=None,
         description="The model the successor runs on, applied after its create; None for the harness's default",
+    )
+    skip_source_summary: bool = Field(
+        default=False,
+        description="Use a fresh saved summary or the transcript without requesting a turn from an unavailable source",
     )
 
     @property

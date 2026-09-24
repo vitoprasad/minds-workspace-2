@@ -16,6 +16,7 @@ from imbue.chat.harnesses.model import ModelAxis
 from imbue.chat.harnesses.model import ModelChoice
 from imbue.chat.harnesses.model import ModelOption
 from imbue.chat.primitives import ChatId
+from imbue.chat.routing_state import ChatRoutingState
 from imbue.imbue_common.enums import LowerCaseStrEnum
 from imbue.imbue_common.frozen_model import FrozenModel
 
@@ -146,6 +147,12 @@ class FastModeStateResponse(FrozenModel):
     """Response from GET and PUT /api/chats/<chat_id>/fast-mode: the chat's fast mode."""
 
     state: ChatFastModeState = Field(description="The chat's fast mode")
+
+
+class RoutingStateResponse(FrozenModel):
+    """Response from GET and PUT /api/chats/<chat_id>/routing: whether the chat picks its own model."""
+
+    state: ChatRoutingState = Field(description="The chat's routing state")
 
 
 class AttachmentUploadResponse(FrozenModel):

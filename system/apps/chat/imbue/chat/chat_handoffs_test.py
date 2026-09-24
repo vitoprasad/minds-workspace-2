@@ -945,6 +945,46 @@ def test_a_fresh_start_asks_for_no_summary_and_hands_the_successor_the_message_a
     assert finished.agents[-1].is_fresh_start is True
 
 
+@pytest.mark.parametrize("saved_summary", [None, "fresh", "stale"])
+def test_an_unavailable_source_uses_saved_context_without_another_model_turn(
+    tmp_path: Path, saved_summary: str | None
+) -> None:
+    workspace, first, successor = _workspace(tmp_path, phase=HandoffPhase.SUMMARIZING)
+    record = workspace.record()
+    assert record.handoff is not None
+    updated = record.model_copy_update(
+        to_update(
+            record.field_ref().handoff,
+            record.handoff.model_copy_update(to_update(record.handoff.field_ref().skip_source_summary, True)),
+        )
+    )
+    # Rebuild from serialized state: a restart must retain the unavailable-source decision.
+    workspace.store.write(ChatRecord.model_validate_json(updated.model_dump_json()))
+    summary = summary_path(tmp_path / "chats", workspace.chat_id, 1)
+    if saved_summary is not None:
+        summary.parent.mkdir(parents=True)
+        summary.write_text("Saved work checkpoint")
+        last_turn = last_user_turn_epoch(workspace.events_by_agent[first])
+        assert last_turn is not None
+        timestamp = last_turn + (1 if saved_summary == "fresh" else -1)
+        os.utime(summary, (timestamp, timestamp))
+
+    _runner(workspace).run(workspace.chat_id, "h-1")
+
+    assert workspace.record().handoff is None
+    assert workspace.clock == 0
+    prompt = workspace.delivered_prompt()
+    assert workspace.delivered == [(successor, prompt, prompt_message_id("h-1"))]
+    assert "Now do it in Codex" in prompt
+    assert first in prompt
+    assert workspace.record().agents[-1].is_fresh_start is False
+    if saved_summary == "fresh":
+        assert "Saved work checkpoint" in prompt
+    else:
+        assert "Saved work checkpoint" not in prompt
+        assert "gather context from its transcript before anything else" in prompt
+
+
 def test_a_transcript_counts_as_having_a_user_turn_only_for_a_message_the_user_typed() -> None:
     """The fresh-start rule: the hidden ``/welcome`` and a system chip are not the user's turns."""
     welcome_only = [

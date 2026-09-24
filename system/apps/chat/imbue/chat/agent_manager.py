@@ -25,6 +25,7 @@ from imbue.chat.accounts import AccountError
 from imbue.chat.accounts import account_dir
 from imbue.chat.accounts import account_label_for
 from imbue.chat.accounts import harness_for
+from imbue.chat.accounts import read_index
 from imbue.chat.accounts import resolve_account
 from imbue.chat.accounts import set_mru
 from imbue.chat.activity_state import ActivityState
@@ -139,6 +140,10 @@ from imbue.chat.oom_prioritizer import ChatOomPrioritizer
 from imbue.chat.presence import PresenceState
 from imbue.chat.primitives import ChatId
 from imbue.chat.primitives import parse_chat_ref
+from imbue.chat.routing_service import options_for_account
+from imbue.chat.routing_state import ChatRoutingState
+from imbue.chat.routing_state import read_routing_state
+from imbue.chat.routing_state import write_routing_state
 from imbue.chat.ws_broadcaster import WebSocketBroadcaster
 from imbue.concurrency_group.concurrency_group import ConcurrencyGroup
 from imbue.concurrency_group.concurrency_group import InvalidConcurrencyGroupStateError
@@ -1423,6 +1428,8 @@ class AgentManager:
         message_id: str,
         origin: HeldSendOrigin,
         model_pick: ModelPick | None = None,
+        *,
+        skip_source_summary: bool = False,
     ) -> tuple[TransitionKind, HandoffPhase, str]:
         """Continue a chat on ``account_id``: a rebind when the account is on the chat's own harness and
         lane and that harness can be rebound, else a handoff (spec 5.2).
@@ -1444,7 +1451,9 @@ class AgentManager:
                 )
             phase, returned_block = self.begin_rebind(chat_id, account_id, message, message_id, origin)
             return TransitionKind.REBIND, phase, returned_block
-        phase, returned_block = self.begin_handoff(chat_id, account_id, message, message_id, origin, model_pick)
+        phase, returned_block = self.begin_handoff(
+            chat_id, account_id, message, message_id, origin, model_pick, skip_source_summary=skip_source_summary
+        )
         return TransitionKind.HANDOFF, phase, returned_block
 
     def begin_handoff(
@@ -1455,6 +1464,8 @@ class AgentManager:
         message_id: str,
         origin: HeldSendOrigin,
         model_pick: ModelPick | None = None,
+        *,
+        skip_source_summary: bool = False,
     ) -> tuple[HandoffPhase, str]:
         """Start moving a chat to ``account_id`` on a new agent: write the handoff, drain the retiring agent,
         and run the rest.
@@ -1479,7 +1490,8 @@ class AgentManager:
         with self._lock:
             agent_state = self._movable_agent_locked(chat_id, target)
             handoff = self._open_handoff_locked(
-                chat_id, agent_state, target, message, message_id, origin, now, model_pick, is_fresh_start
+                chat_id, agent_state, target, message, message_id, origin, now, model_pick, is_fresh_start,
+                skip_source_summary,
             )
         self._broadcast_chats_updated()
         _loguru_logger.info(
@@ -1581,6 +1593,7 @@ class AgentManager:
         now: datetime,
         model_pick: ModelPick | None,
         is_fresh_start: bool,
+        skip_source_summary: bool,
     ) -> ChatHandoffRecord:
         """Write the chat's handoff entry in the draining phase, with the trigger message (when there is one)
         as its first held send; a chat that is still its one agent gets its record here. Lock held."""
@@ -1608,6 +1621,7 @@ class AgentManager:
             held_sends=held_sends,
             model_pick=model_pick,
             is_fresh_start=is_fresh_start,
+            skip_source_summary=skip_source_summary,
         )
         self._write_record_locked(record.with_converging(handoff))
         return handoff
@@ -2655,6 +2669,49 @@ class AgentManager:
     def set_fast_mode_state(self, chat_id: ChatId, state: ChatFastModeState) -> None:
         """Record the chat's fast mode; the page applies the speed itself through the model switch."""
         write_fast_mode_state(self._chat_files_root / chat_id, state)
+
+    def get_routing_state(self, chat_id: ChatId) -> ChatRoutingState:
+        """The chat's routing state (``routing_state.py``): what it chose, else the workspace's default."""
+        state = read_routing_state(self._chat_files_root / chat_id)
+        if state is not None:
+            return state
+        return ChatRoutingState(mode=self._chat_settings.read().routing_default)
+
+    def set_routing_state(self, chat_id: ChatId, state: ChatRoutingState) -> None:
+        """Record the chat's routing state. Turning routing on clears the accounts it had given up on, since
+        the user turning it back on is the one signal that something about them may have changed."""
+        if state.is_routed and not self.get_routing_state(chat_id).is_routed:
+            state = state.model_copy_update(to_update(state.field_ref().exhausted_accounts, ()))
+        write_routing_state(self._chat_files_root / chat_id, state)
+
+    def routing_options_by_account(self) -> dict[str, tuple[ModelOption, ...]]:
+        """The models every signed-in account can offer, keyed by account id: what routing chooses among.
+
+        A harness with a static catalog answers from it. One whose set is per agent (codex) has no
+        catalog, so the answer is what an agent of that account was last offered -- read off its
+        sidecar rather than by reaching its daemon, since this runs on the send path. An account
+        with neither is absent from the mapping and cannot be routed to.
+        """
+        persisted_by_account: dict[str, tuple[ModelOption, ...]] = {}
+        for agent in self.get_agents():
+            account_id = agent.labels.get("account")
+            if account_id is None or account_id in persisted_by_account:
+                continue
+            agent_info = self.get_agent_info_by_id(agent.id)
+            if agent_info is None:
+                continue
+            options = build_resolver(agent_info).list_persisted_options()
+            if options:
+                persisted_by_account[account_id] = options
+        options_by_account: dict[str, tuple[ModelOption, ...]] = {}
+        for account in read_index().accounts:
+            harness = harness_for(account)
+            if harness is None:
+                continue
+            options = options_for_account(get_catalog(harness).options, persisted_by_account.get(account.id))
+            if options:
+                options_by_account[account.id] = options
+        return options_by_account
 
     def knows_chat(self, chat_id: ChatId) -> bool:
         """Whether the id names a chat this manager lists: a running one, a recorded one, or a provisional one."""

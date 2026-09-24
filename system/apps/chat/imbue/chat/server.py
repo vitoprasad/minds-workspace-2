@@ -37,6 +37,8 @@ from werkzeug.exceptions import NotFound
 
 from imbue.chat import accounts_endpoints
 from imbue.chat import latchkey_endpoints
+from imbue.chat.accounts import AccountError
+from imbue.chat.accounts import read_index
 from imbue.chat.agent_discovery import AgentInfo
 from imbue.chat.agent_discovery import SendFailedError
 from imbue.chat.agent_discovery import discover_agents
@@ -108,8 +110,11 @@ from imbue.chat.models import HandoffState
 from imbue.chat.models import HeldSendOrigin
 from imbue.chat.models import HeldSendResponse
 from imbue.chat.models import InterruptAgentResponse
+from imbue.chat.models import ModelApplyError
 from imbue.chat.models import ModelOptionsResponse
+from imbue.chat.models import ModelPick
 from imbue.chat.models import PoweredByResponse
+from imbue.chat.models import RoutingStateResponse
 from imbue.chat.models import SeedChatRequest
 from imbue.chat.models import SendMessageRequest
 from imbue.chat.models import SendMessageResponse
@@ -126,6 +131,14 @@ from imbue.chat.primitives import parse_chat_ref
 from imbue.chat.request_helpers import handle_unhandled_exception
 from imbue.chat.request_helpers import json_response
 from imbue.chat.request_helpers import parse_json_object_body
+from imbue.chat.routing_policy import assess_routing_task
+from imbue.chat.routing_service import RoutingAction
+from imbue.chat.routing_service import RoutingDecision
+from imbue.chat.routing_service import collect_candidates
+from imbue.chat.routing_service import decide_route
+from imbue.chat.routing_service import is_model_switchable
+from imbue.chat.routing_service import is_provider_exhausted
+from imbue.chat.routing_state import ChatRoutingState
 from imbue.chat.state import ChatAppState
 from imbue.chat.state import attach_state
 from imbue.chat.state import get_state
@@ -133,6 +146,7 @@ from imbue.chat.ws_broadcaster import chats_updated_message
 from imbue.chat.ws_broadcaster import provisional_chat_created_message
 from imbue.chat.wsgi import build_sock
 from imbue.concurrency_group.subprocess_utils import run_local_command_modern_version
+from imbue.imbue_common.model_update import to_update
 from imbue.imbue_common.pure import pure
 from imbue.mngr.errors import MngrError
 from imbue.mngr.primitives import AgentId
@@ -479,6 +493,117 @@ def _build_handoff_capabilities(state: ChatAppState) -> HandoffCapabilities:
     )
 
 
+def _route_this_turn(
+    state: ChatAppState,
+    chat_id: ChatId,
+    agent_info: AgentInfo,
+    send_message_request: SendMessageRequest,
+    message_id: str,
+) -> Response | None:
+    """Weigh the turn about to run and move the chat if it should, for a chat the user has set to route itself.
+
+    Returns the held-send answer when the chat is moving to another account (this message travels
+    with it, so the caller must not also deliver it), and None in every other case -- routing off,
+    nothing to change, or a model changed in place, all of which leave the turn to run here.
+
+    Nothing in here may take the turn down with it. A routing decision is an optimization of a send
+    the user already made, so every failure along the way -- an unreadable account index, a model
+    the harness refuses, a switch that will not start -- is logged and then ignored, and the message
+    goes to the agent the chat is already on.
+    """
+    manager: AgentManager = state.agent_manager
+    routing = manager.get_routing_state(chat_id)
+    if not routing.is_routed:
+        return None
+    account_id = agent_info.labels.get("account")
+    if account_id is None:
+        return None
+    try:
+        decision, is_exhausted = _decide_route(state, chat_id, agent_info, account_id, routing, send_message_request)
+    except (AccountError, RegistryReadError, OSError) as e:
+        _loguru_logger.warning("Chat {}: could not weigh this turn, leaving it where it is: {}", chat_id, e)
+        return None
+    manager.set_routing_state(
+        chat_id,
+        routing.model_copy_update(
+            to_update(routing.field_ref().tier, decision.assessment.tier),
+            to_update(
+                routing.field_ref().exhausted_accounts,
+                _with_exhausted(routing.exhausted_accounts, account_id if is_exhausted else None),
+            ),
+        ),
+    )
+    if decision.action is RoutingAction.STAY or decision.target is None:
+        return None
+    pick = ModelPick(
+        model_id=decision.target.model.model_id, effort=decision.target.model.effort, fast=decision.target.model.fast
+    )
+    if decision.action is RoutingAction.SWITCH_MODEL:
+        try:
+            manager.apply_model_pick(agent_info, pick)
+        except ModelApplyError as e:
+            _loguru_logger.warning("Chat {}: could not move to {}: {}", chat_id, pick.model_id, e)
+        return None
+    # Another account takes the chat over. A source that has stopped answering cannot be asked for
+    # a handoff summary, so the successor is told to read the saved transcript instead.
+    try:
+        _, phase, _ = manager.begin_switch(
+            chat_id,
+            decision.target.account_id,
+            send_message_request.message,
+            message_id,
+            _held_send_origin(send_message_request),
+            pick,
+            skip_source_summary=is_exhausted,
+        )
+    except (HandoffError, ChatConvergingError) as e:
+        _loguru_logger.warning("Chat {}: could not move to {}: {}", chat_id, decision.target.provider, e)
+        return None
+    _loguru_logger.info("Chat {}: {}", chat_id, decision.reason)
+    return json_response(HeldSendResponse(status="held", phase=phase).model_dump(mode="json"), status_code=202)
+
+
+@pure
+def _with_exhausted(recorded: tuple[str, ...], failed_account_id: str | None) -> tuple[str, ...]:
+    """The chat's given-up-on accounts once ``failed_account_id`` is added, in the order they failed.
+
+    A move away from a failed account can itself fail, leaving the chat on it for another turn --
+    so the same account can arrive here repeatedly and must not pile up.
+    """
+    if failed_account_id is None or failed_account_id in recorded:
+        return recorded
+    return (*recorded, failed_account_id)
+
+
+def _decide_route(
+    state: ChatAppState,
+    chat_id: ChatId,
+    agent_info: AgentInfo,
+    account_id: str,
+    routing: ChatRoutingState,
+    send_message_request: SendMessageRequest,
+) -> tuple[RoutingDecision, bool]:
+    """The routing answer for this turn, and whether the chat's own account has stopped answering."""
+    manager: AgentManager = state.agent_manager
+    assessment = assess_routing_task(send_message_request.message, routing.tier)
+    is_exhausted = is_provider_exhausted(state.get_or_create_watcher(agent_info).get_all_events())
+    options_by_account = manager.routing_options_by_account()
+    candidates = collect_candidates(read_index(), options_by_account, assessment.tier)
+    agent_state = manager.get_agent_by_id(agent_info.id)
+    choice = agent_state.model_choice if agent_state is not None else None
+    decision = decide_route(
+        assessment,
+        candidates,
+        account_id,
+        choice.identity if choice is not None else None,
+        is_current_exhausted=is_exhausted,
+        is_model_switchable=is_model_switchable(get_catalog(agent_info.harness).switch_mode),
+        is_current_account_known=account_id in options_by_account,
+        exhausted_accounts=frozenset(routing.exhausted_accounts),
+    )
+    return decision, is_exhausted
+
+
 def _send_message_endpoint(chat_id: str) -> Response:
     """Send a message to a chat: its active agent receives it, or the chat app holds it while the chat converges."""
     state = get_state()
@@ -514,6 +639,16 @@ def _send_message_endpoint(chat_id: str) -> Response:
     agent_info = _find_active_agent(chat_id)
     if agent_info is None:
         return _chat_not_found_response(chat_id)
+
+    # The one point a routed chat weighs the work and may move itself: before the turn runs and
+    # after the queue is known to be still. A move to another account holds this very message for
+    # the successor, which answers exactly as a user-driven switch does.
+    moved = _route_this_turn(state, ChatId(chat_id), agent_info, send_message_request, message_id)
+    if moved is not None:
+        _record_client_message_activity(ChatId(chat_id), send_message_request)
+        agent_manager.record_message_sent(ChatId(chat_id))
+        return moved
+
     try:
         outcome = _deliver_message(state, agent_info, send_message_request.message, message_id)
     except SendFailedError as send_failure:
@@ -759,6 +894,32 @@ def _put_fast_mode_endpoint(chat_id: str) -> Response:
         return json_response(ErrorResponse(detail=str(e)).model_dump(), status_code=400)
     get_state().agent_manager.set_fast_mode_state(parsed, state)
     return json_response(FastModeStateResponse(state=state).model_dump(mode="json"))
+
+
+def _get_routing_endpoint(chat_id: str) -> Response:
+    """``GET /api/chats/<chat_id>/routing``: whether the chat picks its own model, and what it has learned doing so."""
+    parsed = _known_chat_or_not_found(chat_id)
+    if isinstance(parsed, Response):
+        return parsed
+    state = get_state().agent_manager.get_routing_state(parsed)
+    return json_response(RoutingStateResponse(state=state).model_dump(mode="json"))
+
+
+def _put_routing_endpoint(chat_id: str) -> Response:
+    """``PUT /api/chats/<chat_id>/routing``: record the chat's routing state whole; 400 for a body that is not one."""
+    parsed = _known_chat_or_not_found(chat_id)
+    if isinstance(parsed, Response):
+        return parsed
+    body = parse_json_object_body()
+    if isinstance(body, Response):
+        return body
+    try:
+        state = ChatRoutingState.model_validate(body)
+    except ValueError as e:
+        return json_response(ErrorResponse(detail=str(e)).model_dump(), status_code=400)
+    manager = get_state().agent_manager
+    manager.set_routing_state(parsed, state)
+    return json_response(RoutingStateResponse(state=manager.get_routing_state(parsed)).model_dump(mode="json"))
 
 
 def _put_settings_endpoint() -> Response:
@@ -1646,6 +1807,13 @@ def create_application(state: ChatAppState) -> Flask:
         view_func=_put_fast_mode_endpoint,
         methods=["PUT"],
         endpoint="_put_fast_mode_endpoint",
+    )
+    application.add_url_rule("/api/chats/<chat_id>/routing", view_func=_get_routing_endpoint, methods=["GET"])
+    application.add_url_rule(
+        "/api/chats/<chat_id>/routing",
+        view_func=_put_routing_endpoint,
+        methods=["PUT"],
+        endpoint="_put_routing_endpoint",
     )
     application.add_url_rule("/api/settings", view_func=_get_settings_endpoint, methods=["GET"])
     application.add_url_rule(

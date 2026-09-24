@@ -2223,17 +2223,32 @@ def test_seeding_a_chat_is_refused_until_the_agent_list_is_known() -> None:
 
 def test_the_chat_settings_read_as_the_defaults_and_are_replaced_whole(client: FlaskClient) -> None:
     assert client.get("/api/settings").get_json() == {
-        "settings": {"fast_mode_default": "auto", "fast_mode_turn_limit": 5, "is_fast_mode_notice_shown": False}
+        "settings": {
+            "routing_default": "off",
+            "fast_mode_default": "auto",
+            "fast_mode_turn_limit": 5,
+            "is_fast_mode_notice_shown": False,
+        }
     }
 
     response = client.put(
         "/api/settings",
-        json={"fast_mode_default": "on", "fast_mode_turn_limit": 2, "is_fast_mode_notice_shown": True},
+        json={
+            "routing_default": "auto",
+            "fast_mode_default": "on",
+            "fast_mode_turn_limit": 2,
+            "is_fast_mode_notice_shown": True,
+        },
     )
 
     assert response.status_code == 200
     assert client.get("/api/settings").get_json() == {
-        "settings": {"fast_mode_default": "on", "fast_mode_turn_limit": 2, "is_fast_mode_notice_shown": True}
+        "settings": {
+            "routing_default": "auto",
+            "fast_mode_default": "on",
+            "fast_mode_turn_limit": 2,
+            "is_fast_mode_notice_shown": True,
+        }
     }
 
 
@@ -3209,3 +3224,63 @@ def test_the_event_fan_out_is_keyed_by_chat(app: Flask, tmp_path: Path) -> None:
     assert (
         state.is_main_session_event({"type": "user_message", "agent_id": "agent-untracked", "session_id": "s"}) is True
     )
+
+
+def test_the_routing_setting_is_recorded_per_chat(app: Flask, client: FlaskClient) -> None:
+    """Whether a chat picks its own model is the chat's to keep, and only a real setting is accepted."""
+    _register_agent(app, "agent-routed", "routed-agent", "RUNNING")
+
+    assert client.get("/api/chats/agent-routed/routing").get_json()["state"]["mode"] == "off"
+    turned_on = client.put("/api/chats/agent-routed/routing", json={"mode": "auto"})
+    assert turned_on.status_code == 200
+    assert turned_on.get_json()["state"] == {"mode": "auto", "tier": None, "exhausted_accounts": []}
+    assert client.get("/api/chats/agent-routed/routing").get_json()["state"]["mode"] == "auto"
+
+    assert client.put("/api/chats/agent-routed/routing", json={"mode": "sometimes"}).status_code == 400
+    assert client.get("/api/chats/nonexistent/routing").status_code == 404
+    assert client.put("/api/chats/nonexistent/routing", json={"mode": "auto"}).status_code == 404
+
+
+def test_turning_routing_back_on_forgives_the_accounts_that_failed_the_chat(app: Flask, client: FlaskClient) -> None:
+    """An account is given up on until the user acts, and turning routing on again is that act."""
+    _register_agent(app, "agent-routed", "routed-agent", "RUNNING")
+    client.put("/api/chats/agent-routed/routing", json={"mode": "auto"})
+    # Recorded while routing is already on, so this write keeps it rather than clearing it.
+    client.put("/api/chats/agent-routed/routing", json={"mode": "auto", "exhausted_accounts": ["spent"]})
+    assert client.get("/api/chats/agent-routed/routing").get_json()["state"]["exhausted_accounts"] == ["spent"]
+
+    client.put("/api/chats/agent-routed/routing", json={"mode": "off", "exhausted_accounts": ["spent"]})
+    back_on = client.put("/api/chats/agent-routed/routing", json={"mode": "auto", "exhausted_accounts": ["spent"]})
+
+    assert back_on.get_json()["state"]["exhausted_accounts"] == []
+
+
+def test_a_routed_chat_on_an_account_nothing_is_known_about_runs_the_turn_where_it_is() -> None:
+    """Routing never costs the user a turn. The chat's agent names an account the index does not hold, so
+    nothing is known about what it offers and the message is delivered as usual -- while the difficulty the
+    chat settled on is still kept for the turns that follow."""
+    agent_id = "agent-00000000000000000000000000000009"
+    agent_info = AgentInfo(
+        id=agent_id,
+        name="routed-agent",
+        state="RUNNING",
+        agent_state_dir=Path(os.environ["MNGR_HOST_DIR"]) / "agents" / agent_id,
+        claude_config_dir=Path(os.environ["MNGR_HOST_DIR"]) / "claude",
+        labels={"account": "an-account-no-index-holds"},
+    )
+    agent_info.agent_state_dir.mkdir(parents=True, exist_ok=True)
+    messenger = RecordingMngrMessenger()
+    manager = AgentManager.build(WebSocketBroadcaster(), messenger=messenger)
+    manager.note_agent_list_known()
+    seed_agent_state(manager, agent_id, name="routed-agent", labels={"account": "an-account-no-index-holds"})
+    client = create_application(build_test_state(agent_manager=manager)).test_client()
+    client.put(f"/api/chats/{agent_id}/routing", json={"mode": "auto"})
+
+    with patch("imbue.chat.server._find_active_agent", return_value=agent_info):
+        response = client.post(
+            f"/api/chats/{agent_id}/message", json={"message": "Fix the production authentication race condition"}
+        )
+
+    assert response.status_code == 200
+    assert messenger.sent == [(agent_id, "Fix the production authentication race condition")]
+    assert client.get(f"/api/chats/{agent_id}/routing").get_json()["state"]["tier"] == "complex"

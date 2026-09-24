@@ -20,6 +20,13 @@ import { getChatById } from "../models/Chats";
 import type { CatalogModelOption, HarnessCatalog } from "../models/HarnessCatalog";
 import { ensureHarnessCatalogs, getHarnessCatalog } from "../models/HarnessCatalog";
 import { ensureFastModeState, fastModeLabel, getFastModeState } from "../models/FastMode";
+import {
+  ensureRoutingState,
+  getRoutingState,
+  routingLabel,
+  toggledRoutingState,
+  updateRoutingState,
+} from "../models/Routing";
 import { changedAxes, effectiveChoice, setModelChoice } from "../models/ModelSettings";
 import type { ModelIdentity } from "../models/ModelSettings";
 import {
@@ -347,6 +354,37 @@ export function ModelBar(): m.Component<{ chatId: string }> {
           opts.interactive
             ? m("span", { class: css.ROW_CHEVRON }, m.trust(icon("chevron-right", { size: 13 })))
             : null,
+        ]),
+      ],
+    );
+  }
+
+  /** Whether the chat picks its own model, as a row that turns it on or off.
+   *
+   * A plain toggle rather than a chooser like fast mode's: there are only two positions, and the
+   * chat's own account is never left for a merely better model, so there is nothing further to
+   * configure. Always interactive, including on a harness whose model cannot be switched in place
+   * (the row governs where the chat RUNS, which such a harness can still be moved between), so it
+   * deliberately does not take the read-only tooltip the rows above it carry.
+   */
+  function routingRow(chatId: string): m.Vnode {
+    const state = getRoutingState(chatId);
+    if (state === null) void ensureRoutingState(chatId);
+    return m(
+      "button",
+      {
+        type: "button",
+        class: css.ROW,
+        "data-card-row": "routing",
+        onclick: () => {
+          if (state === null) return;
+          void updateRoutingState(chatId, toggledRoutingState(state));
+        },
+      },
+      [
+        m("span", { class: css.ROW_LABEL }, "Pick For Me"),
+        m("span", { class: css.ROW_VALUE }, [
+          m("span", { class: css.ROW_TEXT }, state === null ? "..." : routingLabel(state)),
         ]),
       ],
     );
@@ -789,6 +827,7 @@ export function ModelBar(): m.Component<{ chatId: string }> {
           pending === null && matched !== null && matched.supports_fast
             ? fastRow({ chatId, interactive, tooltip: readOnlyTooltip })
             : null,
+          pending === null ? routingRow(chatId) : null,
           m("div", { class: css.DIVIDER }),
           stopAgentRow(chatId),
         ]),
