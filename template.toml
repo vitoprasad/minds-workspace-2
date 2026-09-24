@@ -1,0 +1,87 @@
+# Machine-readable manifest for this template. The sibling
+# template.md holds the prose, the Requirements list, and the two
+# append-only history logs; this file is authoritative for everything
+# below. Both are generated together -- validate_template.py fails if
+# they disagree.
+format = "v2"
+
+[template]
+slug = "local-events-finder"
+title = "Local Events Finder"
+description = "Finds a few local events you would actually turn up to, chosen from your own calendar rather than a questionnaire."
+thumbnail = "template.svg"
+version = "v1"
+
+# How this template is DERIVED from the workspace it came from. An
+# update re-runs this recipe rather than diffing two repos, which is what
+# keeps an exclusion excluded even though the thing still exists upstream.
+[recipe]
+include = [".agents/skills/local-events-finder"]
+data_include = []
+# The user's own workspace data -- their derived calendar profile, the raw
+# event pulls, and their decision log -- all of which live under
+# data/.skills/local-events-finder/ and are personal to them.
+exclude = ["data/.skills/local-events-finder"]
+# Test fixtures originally used real entries lifted from the publisher's own
+# calendar; they are replaced with invented equivalents so a published test
+# never ships somebody's week.
+modification_rules = [
+    "replace every real calendar entry used as a test fixture -- personal names, clubs, venues -- with an invented equivalent",
+]
+
+[requirements]
+
+# Read-only access to every calendar the user has, including subscribed ones:
+# that is what replaces the interests questionnaire.
+[[requirements.permission]]
+scope = "google-calendar-api"
+permission = "google-calendar-read-calendar-list"
+
+[[requirements.permission]]
+scope = "google-calendar-api"
+permission = "google-calendar-read-events"
+
+[[requirements.adaptation]]
+summary = "Partiful publishes city feeds for four metros only (sf, nyc, la, dc)"
+resolution = "outside them only Luma answers, and its mix is too professional for the social use case; expect thin results and consider adding a local source"
+
+[[requirements.adaptation]]
+summary = "the default region is sf"
+resolution = "pass --region, or change the default in find_events.py"
+
+[[requirements.adaptation]]
+summary = "the distance filter only engages when a home coordinate is supplied"
+resolution = "pass --home-latitude and --home-longitude; without them nothing is dropped for being far, and Partiful's sf region spans all of Northern California"
+
+[[requirements.adaptation]]
+summary = "matching is word overlap and cannot bridge a calendar entry to a related event that shares no words"
+resolution = "put a language model in the matching step if that gap matters, accepting a per-run cost"
+
+[[requirements.adaptation]]
+summary = "nothing runs on a schedule as published"
+resolution = "use the manage-scheduled-tasks skill to run it weekly so it brings plans unprompted"
+
+# What the included code needs INSTALLED. apt takes bare names: versions
+# are a function of the apt snapshot timestamp, so replaying names at the
+# adopter's timestamp yields versions consistent with the rest of their
+# environment. The other sources are not snapshot-pinned, so for them the
+# recorded version IS the pin (name = version).
+#
+# FILL IN from what the included code actually needs, e.g.:
+#   apt = ["poppler-utils"]
+#   [environment.npm_global]
+#   "@slack/cli" = "2.1.0"
+#   [environment.uv_tools]
+#   yt-dlp = "2026.7.1"
+#   [environment.cargo_crates]
+#   fd-find = "9.0.0"
+#
+# For an install with no package database (a URL-fetched binary, a browser),
+# ship a system/scripts/env.d/<NNNN>-<slug>-<name>.sh unit with NNNN >= 2000,
+# include it in the recipe above, and list it in env_d_units.
+[environment]
+# The code uses only the Python standard library plus pydantic and loguru,
+# which the stock workspace already has, and the latchkey command, which every
+# mind already has.
+apt = []
+env_d_units = []

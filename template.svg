@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" width="240" height="160" role="img" aria-label="Local Events Finder: a calendar beside a shortlist of three events">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7F5F0"/>
+      <stop offset="1" stop-color="#EDE9E1"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="240" height="160" fill="url(#bg)"/>
+
+  <!-- The calendar the picks are derived from -->
+  <g transform="translate(18 34)">
+    <rect x="0" y="0" width="74" height="82" rx="7" fill="#FFFFFF" stroke="#CFC7B8" stroke-width="1.5"/>
+    <path d="M0 7a7 7 0 0 1 7-7h60a7 7 0 0 1 7 7v10H0z" fill="#3E5C4B"/>
+    <rect x="16" y="-4" width="4" height="12" rx="2" fill="#2C4235"/>
+    <rect x="54" y="-4" width="4" height="12" rx="2" fill="#2C4235"/>
+
+    <g fill="#D8D1C0">
+      <rect x="9"  y="26" width="11" height="8" rx="2"/>
+      <rect x="25" y="26" width="11" height="8" rx="2"/>
+      <rect x="41" y="26" width="11" height="8" rx="2"/>
+      <rect x="57" y="26" width="8"  height="8" rx="2"/>
+      <rect x="9"  y="40" width="11" height="8" rx="2"/>
+      <rect x="41" y="40" width="11" height="8" rx="2"/>
+      <rect x="57" y="40" width="8"  height="8" rx="2"/>
+      <rect x="9"  y="54" width="11" height="8" rx="2"/>
+      <rect x="25" y="54" width="11" height="8" rx="2"/>
+      <rect x="57" y="54" width="8"  height="8" rx="2"/>
+      <rect x="9"  y="68" width="11" height="8" rx="2"/>
+      <rect x="41" y="68" width="11" height="8" rx="2"/>
+    </g>
+
+    <!-- The recurring commitment the matching keys off -->
+    <rect x="25" y="40" width="11" height="8" rx="2" fill="#C8763C"/>
+    <rect x="41" y="54" width="11" height="8" rx="2" fill="#C8763C"/>
+    <rect x="25" y="68" width="11" height="8" rx="2" fill="#C8763C"/>
+  </g>
+
+  <!-- Three picks, never thirty -->
+  <g transform="translate(112 30)">
+    <g>
+      <rect x="0" y="0" width="112" height="26" rx="6" fill="#FFFFFF" stroke="#CFC7B8" stroke-width="1.5"/>
+      <circle cx="14" cy="13" r="5" fill="#3E5C4B"/>
+      <rect x="26" y="7"  width="60" height="4" rx="2" fill="#5B5346"/>
+      <rect x="26" y="16" width="38" height="3" rx="1.5" fill="#B3AA99"/>
+    </g>
+    <g transform="translate(0 35)">
+      <rect x="0" y="0" width="112" height="26" rx="6" fill="#FFFFFF" stroke="#CFC7B8" stroke-width="1.5"/>
+      <circle cx="14" cy="13" r="5" fill="#C8763C"/>
+      <rect x="26" y="7"  width="48" height="4" rx="2" fill="#5B5346"/>
+      <rect x="26" y="16" width="56" height="3" rx="1.5" fill="#B3AA99"/>
+    </g>
+    <g transform="translate(0 70)">
+      <rect x="0" y="0" width="112" height="26" rx="6" fill="#FFFFFF" stroke="#CFC7B8" stroke-width="1.5"/>
+      <circle cx="14" cy="13" r="5" fill="#7A8B6F"/>
+      <rect x="26" y="7"  width="54" height="4" rx="2" fill="#5B5346"/>
+      <rect x="26" y="16" width="30" height="3" rx="1.5" fill="#B3AA99"/>
+    </g>
+  </g>
+
+  <!-- Calendar feeds the shortlist -->
+  <path d="M96 75 H106" stroke="#B3AA99" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M103 71 L108 75 L103 79" fill="none" stroke="#B3AA99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="18" y="126" width="52" height="4" rx="2" fill="#C2BAA8"/>
+  <rect x="18" y="136" width="30" height="4" rx="2" fill="#D8D1C0"/>
+</svg>
