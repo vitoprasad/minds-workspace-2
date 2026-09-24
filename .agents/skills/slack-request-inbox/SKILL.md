@@ -94,11 +94,22 @@ Do this on every run, whether woken by the check or asked directly. Check
    it never marks anything answered. A front door that is not set up prints an
    empty list rather than failing.
 
-2. **Do the work, oldest request first.** Treat the text as the user's
+2. **Answer within about two minutes, always.** The user is on a phone waiting
+   on a notification, so speed beats completeness here in a way it does not in
+   chat. Answer from what is already in front of you and from a couple of quick
+   checks; if the request genuinely needs more, send the answer you have plus
+   what you are still checking, and follow up in the same thread.
+
+   Do **not** go digging through past conversations, logs, or history to enrich
+   an answer the user did not ask to be enriched. A question with a one-line
+   answer gets a one-line answer. Silence for ten minutes is a worse outcome
+   than an answer that turns out to need a correction.
+
+3. **Do the work, oldest request first.** Treat the text as the user's
    instruction exactly as if they had typed it in chat, and use whatever skills
    and tools the request calls for.
 
-3. **Reply where the request came from**, once per request:
+4. **Reply where the request came from**, once per request:
 
    ```bash
    uv run --project ../../../.. python slack_inbox.py reply \
@@ -112,7 +123,7 @@ Do this on every run, whether woken by the check or asked directly. Check
    `latchkey curl` -- a reply sent that way leaves the request pending and it
    will be answered again on the next run.
 
-4. **If a request cannot be done, still reply.** Say plainly what blocked it.
+5. **If a request cannot be done, still reply.** Say plainly what blocked it.
    Silence is the one outcome the user cannot act on; an unanswered request also
    wakes an agent again on every check until something replies.
 
