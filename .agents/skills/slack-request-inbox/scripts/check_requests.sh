@@ -22,8 +22,11 @@ if [ -f "$INBOX_ROOT/config.toml" ]; then
     SLACK_PENDING_COUNT="$(uv run --project "$ROOT" python slack_inbox.py --root "$INBOX_ROOT" pending --count-only)"
 fi
 
+# Telegram's listener service normally ingests within seconds of a message arriving; this ingest
+# is the backstop for the window where that service is down.
 TELEGRAM_PENDING_COUNT=0
 if [ -f "$INBOX_ROOT/telegram.toml" ]; then
+    uv run --project "$ROOT" python telegram_inbox.py --root "$INBOX_ROOT" ingest > /dev/null
     TELEGRAM_PENDING_COUNT="$(uv run --project "$ROOT" python telegram_inbox.py --root "$INBOX_ROOT" pending --count-only)"
 fi
 

@@ -5,7 +5,6 @@ from typing import Any
 from typing import Final
 
 from imbue.imbue_common.frozen_model import FrozenModel
-from imbue.imbue_common.model_update import to_update
 from imbue.imbue_common.pure import pure
 from pydantic import Field
 from telegram_types import TelegramChatId
@@ -13,13 +12,10 @@ from telegram_types import TelegramInboxState
 from telegram_types import TelegramNotConfiguredError
 from telegram_types import TelegramRequest
 from telegram_types import TelegramStateError
-from telegram_types import TelegramUpdateId
 
 TELEGRAM_CONFIGURATION_FILE_NAME: Final[str] = "telegram.toml"
 TELEGRAM_STATE_FILE_NAME: Final[str] = "telegram_state.json"
 TELEGRAM_RAW_RECORD_DIRECTORY_NAME: Final[str] = "telegram_raw"
-
-MAX_REMEMBERED_UPDATE_COUNT: Final[int] = 400
 
 
 class TelegramInboxPaths(FrozenModel):
@@ -103,22 +99,3 @@ def persist_raw_request(paths: TelegramInboxPaths, request: TelegramRequest) -> 
     except OSError as e:
         raise TelegramStateError(f"Cannot archive the raw Telegram update: {record_path}") from e
     return record_path
-
-
-@pure
-def with_handled_update(state: TelegramInboxState, update_id: TelegramUpdateId) -> TelegramInboxState:
-    if update_id in state.handled_update_ids:
-        return state
-    return state.model_copy_update(
-        to_update(state.field_ref().handled_update_ids, state.handled_update_ids + (update_id,)),
-    )
-
-
-@pure
-def with_acknowledged_offset(
-    state: TelegramInboxState,
-    acknowledged_offset: TelegramUpdateId,
-) -> TelegramInboxState:
-    return state.model_copy_update(
-        to_update(state.field_ref().acknowledged_offset, acknowledged_offset),
-    )

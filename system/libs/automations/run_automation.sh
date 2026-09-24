@@ -12,6 +12,7 @@
 #
 # Usage:
 #   run_automation.sh <skill> [--template <template>] [--type <harness>] [--agent-name <name>]
+#                              [--no-clear]
 #
 #   <skill>          Required. Names the skill to run: the agent is messaged
 #                    `/<skill>` on every run and found as a singleton by the
@@ -24,6 +25,13 @@
 #                    from .mngr/settings.local.toml; naming one here gets that
 #                    harness but no account unless the default account is on it.
 #   --agent-name <n> Agent name shown in the UI (default: the skill name).
+#   --no-clear       Keep the agent's chat instead of clearing it first. Use for
+#                    an agent that answers a stream of user requests rather than
+#                    running one scheduled job: the clear-then-trigger pair costs
+#                    about 90 seconds (two chat sends, one settle wait), which is
+#                    most of the latency such an agent's user feels, and a warm
+#                    context is what makes their follow-up message make sense.
+#                    Only safe for a skill that re-reads its own state each run.
 #
 # Invoked by the weekly caretaker job (the entry the enable-caretaker skill
 # creates, via system/libs/automations/run_job.sh and system/services/caretaker/caretaker_check.sh) or any
@@ -53,11 +61,13 @@ SKILL=""
 TEMPLATE="automation"
 TYPE=""
 AGENT_NAME=""
+IS_CLEAR_WANTED="true"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --template) TEMPLATE="$2"; shift 2 ;;
     --type) TYPE="$2"; shift 2 ;;
     --agent-name) AGENT_NAME="$2"; shift 2 ;;
+    --no-clear) IS_CLEAR_WANTED="false"; shift ;;
     --*) echo "run_automation: unknown option: $1" >&2; exit 2 ;;
     *)
       if [ -z "$SKILL" ]; then SKILL="$1"; shift
@@ -66,7 +76,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 if [ -z "$SKILL" ]; then
-  echo "usage: run_automation.sh <skill> [--template <template>] [--type <harness>] [--agent-name <name>]" >&2
+  echo "usage: run_automation.sh <skill> [--template <template>] [--type <harness>] [--agent-name <name>] [--no-clear]" >&2
   exit 2
 fi
 AGENT_NAME="${AGENT_NAME:-$SKILL}"
@@ -161,12 +171,15 @@ main() {
   # more than one exists.
   id="$(printf '%s\n' "$ids" | head -n 1)"
 
-  # Clear the rendered chat so this run starts from an empty conversation.
-  log "clearing automation agent ${id} for a fresh run"
-  python3 system/scripts/message_chat.py "$id" --message "/clear"
+  # Clear the rendered chat so this run starts from an empty conversation, unless the caller
+  # wants the context kept (a request-answering agent, where the clear is pure latency).
+  if [ "$IS_CLEAR_WANTED" = "true" ]; then
+    log "clearing automation agent ${id} for a fresh run"
+    python3 system/scripts/message_chat.py "$id" --message "/clear"
 
-  # Let the clear land (new session boundary recorded) before triggering the run.
-  sleep "$CLEAR_SETTLE_SECONDS"
+    # Let the clear land (new session boundary recorded) before triggering the run.
+    sleep "$CLEAR_SETTLE_SECONDS"
+  fi
 
   # Re-trigger the skill in the now-empty chat.
   log "triggering automation agent ${id} run"

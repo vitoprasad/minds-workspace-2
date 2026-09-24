@@ -70,10 +70,35 @@ uv run --project ../../../.. python telegram_inbox.py claim
 waiting it changes nothing and says so -- ask the user to message the bot, then
 run it again.
 
-Unlike Slack, Telegram **discards** updates once they are acknowledged, and an
-acknowledgement is implicit in asking for the next offset. The code therefore
-only ever acknowledges the leading run of settled updates: an unanswered request
-is never confirmed away, which is what makes a crashed run recoverable.
+### Telegram hands each message out exactly once
+
+Telegram gives an update to one reader and **discards** it once acknowledged,
+and the acknowledgement is implicit in asking for the next offset. That single
+fact shapes the whole Telegram side: whatever reads from Telegram must also be
+what stores the request, because nothing can re-read it later.
+
+So the Telegram side is a queue with two halves:
+
+- **`ingest`** is the only thing that talks to Telegram. It reads updates,
+  writes each request into `telegram_state.json` *and* the raw archive, and only
+  then acknowledges. A crash between the write and the acknowledgement re-reads
+  the update, which is harmless -- a request already queued is not queued twice.
+- **`pending`** and **`reply`** work off that stored queue. `pending` makes no
+  network call at all, and `reply` removes the request from the queue, which is
+  the record that it was answered.
+
+Never call `getUpdates` by hand while this is running (not even to look): the
+call acknowledges what it returns, so a stray read can make Telegram forget a
+request the queue never got.
+
+### The fast lane
+
+`scripts/telegram_listener.py` runs as the `telegram-request-listener`
+supervisord program. It holds `getUpdates` open with a 25 second long poll, so
+Telegram answers the moment a message is sent rather than on the next tick, and
+then ingests it and wakes the agent. A burst of messages is one wake, rate
+limited to one every 20 seconds, and the agent answers the whole queue in that
+run. If the wake fails the request simply stays queued for the scheduled check.
 
 ## Handling a run
 
@@ -149,19 +174,23 @@ is waiting, so an idle inbox costs nothing but one API call per configured front
 door. Editing or removing that entry is the on/off switch -- see the
 manage-scheduled-tasks skill.
 
-**The poll is not the bottleneck, so do not promise a speed it cannot hit.**
-Measured end to end, the poll contributes up to a minute, then
-`run_automation.sh` spends roughly 90 seconds clearing the singleton agent's
-chat and re-sending the command, and only then does the agent start thinking.
-Two and a half minutes is the realistic floor with this design; tell the user
-"a couple of minutes", never "instantly".
+**Waking the agent is the bottleneck, and it is not small.** Measured on this
+host, `run_automation.sh` takes 90 to 180 seconds to hand a run to the existing
+agent, and almost all of it is one call: `system/scripts/message_chat.py` does
+not find the automation agent registered as a chat, falls back to
+`mngr message`, and that drives a tmux pane and waits for the keystrokes to
+land. Telegram's listener removes the waiting-to-notice part entirely and
+`--no-clear` removes one of the two sends, so the honest end-to-end figure is
+**a couple of minutes**, not seconds. Do not promise seconds.
 
-Getting below that means removing the wake cost, not polling harder -- a
-long-lived process that holds a Telegram long-poll open
-(`getUpdates?timeout=25` returns the moment a message lands) and an agent that
-stays warm between requests. Slack cannot go that way on these credentials:
-real-time Slack needs a Slack app with Socket Mode, and this workspace has a
-user token, not an app.
+The remaining fix is to make the chat app know the automation agent, so the
+fast HTTP path is used instead of the tmux fallback. That means labelling the
+agent as its own chat at creation time, which is shared machinery the Caretaker
+also uses -- worth doing deliberately, not as a side effect of this skill.
+
+Slack has no equivalent of the listener on these credentials: real-time Slack
+needs a Slack app with Socket Mode, and this workspace has a user token, not an
+app. Slack stays on the one-minute poll.
 
 ## What is stored
 
@@ -173,7 +202,7 @@ Everything under `data/.skills/slack-request-inbox/`:
 | `state.json` | The Slack watermark, answered request timestamps, this inbox's own posted timestamps, and the threads still being polled |
 | `raw/<ts>.json` | The untouched Slack record for each request, with its permalink back to the original |
 | `telegram.toml` | The one claimed Telegram chat id |
-| `telegram_state.json` | The Telegram offset and the answered update ids |
+| `telegram_state.json` | The Telegram offset and the queue of requests still to answer |
 | `telegram_raw/<update_id>.json` | The untouched Telegram record for each request |
 
 The raw archive is written *before* any work is done, so the original request

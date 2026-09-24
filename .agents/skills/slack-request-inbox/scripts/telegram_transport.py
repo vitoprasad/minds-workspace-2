@@ -36,7 +36,12 @@ class TelegramTransportInterface(MutableModel, ABC):
     """Defines the contract for reading and answering Telegram messages through the user's bot."""
 
     @abstractmethod
-    def read_updates(self, offset: TelegramUpdateId) -> TelegramUpdateBatch:
+    def read_updates(
+        self,
+        offset: TelegramUpdateId,
+        # Seconds to hold the connection open waiting for a message; 0 returns whatever is queued now.
+        long_poll_seconds: int,
+    ) -> TelegramUpdateBatch:
         """Return updates from the given offset onward, oldest first, without acknowledging them."""
 
     @abstractmethod
@@ -58,10 +63,18 @@ class LatchkeyTelegramTransport(TelegramTransportInterface):
 
     latchkey_executable: str = Field(frozen=True, description="Name or path of the latchkey binary")
 
-    def read_updates(self, offset: TelegramUpdateId) -> TelegramUpdateBatch:
+    def read_updates(self, offset: TelegramUpdateId, long_poll_seconds: int) -> TelegramUpdateBatch:
         body = self._call_telegram_method(
             method_name="getUpdates",
-            parameters={"offset": int(offset), "limit": UPDATE_PAGE_LIMIT, "timeout": 0},
+            parameters={
+                "offset": int(offset),
+                "limit": UPDATE_PAGE_LIMIT,
+                "timeout": long_poll_seconds,
+            },
+            # A long poll legitimately sits idle for its whole timeout, so the hard limit has to
+            # clear it rather than treating a quiet inbox as a hung call.
+            hard_timeout_seconds=TELEGRAM_CALL_HARD_TIMEOUT_SECONDS + long_poll_seconds,
+            warning_threshold_seconds=TELEGRAM_CALL_WARNING_THRESHOLD_SECONDS + long_poll_seconds,
         )
         raw_updates = body.get("result", [])
         if not isinstance(raw_updates, list):
@@ -76,6 +89,8 @@ class LatchkeyTelegramTransport(TelegramTransportInterface):
         self._call_telegram_method(
             method_name="getUpdates",
             parameters={"offset": int(offset), "limit": 1, "timeout": 0},
+            hard_timeout_seconds=TELEGRAM_CALL_HARD_TIMEOUT_SECONDS,
+            warning_threshold_seconds=TELEGRAM_CALL_WARNING_THRESHOLD_SECONDS,
         )
 
     def send_message(
@@ -87,13 +102,26 @@ class LatchkeyTelegramTransport(TelegramTransportInterface):
         parameters: dict[str, Any] = {"chat_id": int(chat_id), "text": text}
         if reply_to_message_id is not None:
             parameters["reply_to_message_id"] = int(reply_to_message_id)
-        body = self._call_telegram_method(method_name="sendMessage", parameters=parameters)
+        body = self._call_telegram_method(
+            method_name="sendMessage",
+            parameters=parameters,
+            hard_timeout_seconds=TELEGRAM_CALL_HARD_TIMEOUT_SECONDS,
+            warning_threshold_seconds=TELEGRAM_CALL_WARNING_THRESHOLD_SECONDS,
+        )
         result = body.get("result", {})
         if not isinstance(result, dict) or not isinstance(result.get("message_id"), int):
             raise TelegramApiError(f"sendMessage returned no message id: {body}")
         return TelegramMessageId(result["message_id"])
 
-    def _call_telegram_method(self, method_name: str, parameters: Mapping[str, Any]) -> dict[str, Any]:
+    def _call_telegram_method(
+        self,
+        method_name: str,
+        parameters: Mapping[str, Any],
+        hard_timeout_seconds: float,
+        # Above this the call is reported as suspiciously slow. A long poll is expected to sit idle
+        # for its whole timeout, so its threshold includes that time rather than firing every poll.
+        warning_threshold_seconds: float,
+    ) -> dict[str, Any]:
         query_string = urllib.parse.urlencode({key: str(value) for key, value in parameters.items()})
         command = [
             self.latchkey_executable,
@@ -107,7 +135,7 @@ class LatchkeyTelegramTransport(TelegramTransportInterface):
                 command,
                 capture_output=True,
                 text=True,
-                timeout=TELEGRAM_CALL_HARD_TIMEOUT_SECONDS,
+                timeout=hard_timeout_seconds,
                 check=True,
             )
         except subprocess.TimeoutExpired as e:
@@ -115,7 +143,7 @@ class LatchkeyTelegramTransport(TelegramTransportInterface):
         except subprocess.CalledProcessError as e:
             raise TelegramApiError(f"Telegram call {method_name} failed: {e.stderr.strip()}") from e
         elapsed_seconds = time.monotonic() - started_at
-        if elapsed_seconds > TELEGRAM_CALL_WARNING_THRESHOLD_SECONDS:
+        if elapsed_seconds > warning_threshold_seconds:
             logger.warning("Telegram call {} took {:.1f}s, which is unusually slow", method_name, elapsed_seconds)
         try:
             body = json.loads(completed.stdout)

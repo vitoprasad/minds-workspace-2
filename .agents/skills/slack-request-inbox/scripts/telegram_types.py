@@ -67,9 +67,12 @@ class TelegramRequest(FrozenModel):
 
 
 class TelegramInboxState(FrozenModel):
-    """What the Telegram inbox remembers between runs."""
+    """The durable Telegram queue: what has been taken off Telegram, and what still needs answering.
 
-    # Telegram drops every update below the offset it is next asked for, so this only ever
-    # advances past updates that have actually been answered.
-    acknowledged_offset: TelegramUpdateId = Field(description="Updates below this are settled and gone")
-    handled_update_ids: tuple[TelegramUpdateId, ...] = Field(description="Updates already answered")
+    Telegram hands each update to exactly one reader and drops everything below the offset it is
+    next asked for, so the queue has to live here rather than there. Ingesting writes the request
+    into this state *before* acknowledging it, which is what lets the offset move at all.
+    """
+
+    acknowledged_offset: TelegramUpdateId = Field(description="Updates below this have been taken off Telegram")
+    pending_requests: tuple[TelegramRequest, ...] = Field(description="Ingested requests not yet answered")

@@ -137,3 +137,30 @@ def test_a_later_run_clears_and_retriggers_the_listed_agent_through_the_messenge
         ["agent-0123456789abcdef0123456789abcdef", "--message", "/clear"],
         ["agent-0123456789abcdef0123456789abcdef", "--message", "/news"],
     ]
+
+
+def test_no_clear_retriggers_the_agent_in_place_without_clearing_its_chat(
+    tmp_path: Path,
+) -> None:
+    """`--no-clear` sends only the run trigger. The clear-then-trigger pair costs a chat send plus
+    a settle wait, which is latency a request-answering agent's user feels directly."""
+    process = _run(
+        tmp_path,
+        "news",
+        "--no-clear",
+        listed_ids=("agent-0123456789abcdef0123456789abcdef",),
+    )
+
+    assert process.returncode == 0, process.stderr
+    assert _recorded_create_argv(tmp_path) == []
+    assert _recorded_message_argvs(tmp_path) == [
+        ["agent-0123456789abcdef0123456789abcdef", "--message", "/news"],
+    ]
+
+
+def test_no_clear_still_creates_the_agent_on_the_first_run(tmp_path: Path) -> None:
+    process = _run(tmp_path, "news", "--no-clear")
+
+    assert process.returncode == 0, process.stderr
+    assert _recorded_create_argv(tmp_path)[:2] == ["create", "news"]
+    assert _recorded_message_argvs(tmp_path) == []

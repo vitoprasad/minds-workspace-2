@@ -1,8 +1,10 @@
+import subprocess
 from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Any
 
 from pydantic import Field
+from telegram_listener import AgentWakerInterface
 from telegram_transport import TelegramTransportInterface
 from telegram_transport import TelegramUpdateBatch
 from telegram_types import TelegramChatId
@@ -18,20 +20,24 @@ class RecordingTelegramTransport(TelegramTransportInterface):
         default_factory=list,
         description="Every message sent through this transport, in order",
     )
+    read_offsets: list[int] = Field(
+        default_factory=list,
+        description="Offsets read_updates was called with, in order",
+    )
     next_message_id: int = Field(description="Message id handed out to the next sent message")
 
-    def read_updates(self, offset: TelegramUpdateId) -> TelegramUpdateBatch:
+    def read_updates(self, offset: TelegramUpdateId, long_poll_seconds: int) -> TelegramUpdateBatch:
+        self.read_offsets.append(int(offset))
         return TelegramUpdateBatch(
             updates=tuple(
-                update for update in sorted(self.available_updates, key=lambda candidate: candidate["update_id"])
+                update
+                for update in sorted(self.available_updates, key=lambda candidate: candidate["update_id"])
                 if update["update_id"] >= int(offset)
             ),
         )
 
     def acknowledge_updates_below(self, offset: TelegramUpdateId) -> None:
-        self.available_updates = [
-            update for update in self.available_updates if update["update_id"] >= int(offset)
-        ]
+        self.available_updates = [update for update in self.available_updates if update["update_id"] >= int(offset)]
 
     def send_message(
         self,
@@ -50,6 +56,25 @@ class RecordingTelegramTransport(TelegramTransportInterface):
             }
         )
         return message_id
+
+
+class RecordingAgentWaker(AgentWakerInterface):
+    """Counts how many times the listener asked for the agent, without starting one."""
+
+    wake_count: int = Field(default=0, description="How many times wake was called")
+
+    def wake(self) -> None:
+        self.wake_count = self.wake_count + 1
+
+
+class FailingAgentWaker(AgentWakerInterface):
+    """A waker that cannot start the agent, for checking the request survives a failed wake."""
+
+    wake_count: int = Field(default=0, description="How many times wake was called")
+
+    def wake(self) -> None:
+        self.wake_count = self.wake_count + 1
+        raise subprocess.CalledProcessError(returncode=1, cmd=["run_automation.sh"])
 
 
 def build_telegram_update(update_id: int, chat_id: int, message_id: int, text: str) -> dict[str, Any]:

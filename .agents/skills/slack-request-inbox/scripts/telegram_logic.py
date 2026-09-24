@@ -2,7 +2,9 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Final
 
+from imbue.imbue_common.frozen_model import FrozenModel
 from imbue.imbue_common.pure import pure
+from pydantic import Field
 from telegram_types import TelegramChatId
 from telegram_types import TelegramInboxState
 from telegram_types import TelegramMessageId
@@ -13,6 +15,13 @@ from telegram_types import TelegramUpdateId
 # request: opening a bot for the first time sends /start on its own. Answering these would spend an
 # agent run on a button press. Any other slash-prefixed text is treated as a normal request.
 TELEGRAM_CLIENT_COMMANDS: Final[frozenset[str]] = frozenset({"/start", "/help"})
+
+
+class IngestResult(FrozenModel):
+    """The state after taking a batch of updates off Telegram, and what was newly queued."""
+
+    state: TelegramInboxState = Field(description="State to persist before acknowledging Telegram")
+    newly_queued_requests: tuple[TelegramRequest, ...] = Field(description="Requests this batch added")
 
 
 @pure
@@ -48,58 +57,41 @@ def extract_request(update: Any, allowed_chat_id: TelegramChatId) -> TelegramReq
 
 
 @pure
-def select_pending_requests(
+def ingest_updates(
     updates: Sequence[dict[str, Any]],
     state: TelegramInboxState,
     allowed_chat_id: TelegramChatId,
-) -> tuple[TelegramRequest, ...]:
-    """Pick out the updates that are unanswered requests, oldest first."""
-    handled_ids = frozenset(int(update_id) for update_id in state.handled_update_ids)
-    pending_requests: list[TelegramRequest] = []
-    for update in sorted(updates, key=lambda candidate: int(candidate["update_id"])):
-        if int(update["update_id"]) in handled_ids:
-            continue
-        request = extract_request(update=update, allowed_chat_id=allowed_chat_id)
-        if request is not None:
-            pending_requests.append(request)
-    return tuple(pending_requests)
+) -> IngestResult:
+    """Fold a batch of Telegram updates into the durable queue.
 
-
-@pure
-def compute_acknowledged_offset(
-    updates: Sequence[dict[str, Any]],
-    state: TelegramInboxState,
-    allowed_chat_id: TelegramChatId,
-) -> TelegramUpdateId:
-    """Advance the offset over the leading run of settled updates, stopping at the first pending one.
-
-    Telegram discards everything below the offset it is next asked for, so the offset must never
-    move past an update that has not been answered -- that update would be gone for good.
+    The offset advances over the whole batch, because every request in it is now held here.
+    Re-ingesting the same update is harmless: a request already queued is not queued twice, which
+    is what makes a crash between writing the queue and acknowledging Telegram safe.
     """
-    handled_ids = frozenset(int(update_id) for update_id in state.handled_update_ids)
-    acknowledged_offset = int(state.acknowledged_offset)
+    already_queued_ids = frozenset(int(request.update_id) for request in state.pending_requests)
+    newly_queued: list[TelegramRequest] = []
+    highest_update_id = int(state.acknowledged_offset) - 1
     for update in sorted(updates, key=lambda candidate: int(candidate["update_id"])):
-        update_id = int(update["update_id"])
-        if update_id < acknowledged_offset:
+        highest_update_id = max(highest_update_id, int(update["update_id"]))
+        request = extract_request(update=update, allowed_chat_id=allowed_chat_id)
+        if request is None or int(request.update_id) in already_queued_ids:
             continue
-        is_settled = update_id in handled_ids or extract_request(update=update, allowed_chat_id=allowed_chat_id) is None
-        if not is_settled:
-            break
-        acknowledged_offset = update_id + 1
-    return TelegramUpdateId(acknowledged_offset)
+        newly_queued.append(request)
+    return IngestResult(
+        state=TelegramInboxState(
+            acknowledged_offset=TelegramUpdateId(highest_update_id + 1),
+            pending_requests=state.pending_requests + tuple(newly_queued),
+        ),
+        newly_queued_requests=tuple(newly_queued),
+    )
 
 
 @pure
-def prune_state_for_storage(
-    state: TelegramInboxState,
-    max_remembered_update_count: int,
-) -> TelegramInboxState:
-    """Forget answered updates the offset has already left behind, keeping the newest of the rest."""
-    retained = sorted(
-        (update_id for update_id in state.handled_update_ids if int(update_id) >= int(state.acknowledged_offset)),
-        key=int,
-    )
+def without_request(state: TelegramInboxState, update_id: TelegramUpdateId) -> TelegramInboxState:
+    """Drop one request from the queue. Removal is the record that it was answered."""
     return TelegramInboxState(
         acknowledged_offset=state.acknowledged_offset,
-        handled_update_ids=tuple(retained[-max_remembered_update_count:]),
+        pending_requests=tuple(
+            request for request in state.pending_requests if int(request.update_id) != int(update_id)
+        ),
     )
